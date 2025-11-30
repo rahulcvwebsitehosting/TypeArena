@@ -3,7 +3,15 @@ import { Difficulty, GameResult } from "../types";
 import { FALLBACK_TEXTS } from "../constants";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  let apiKey = undefined;
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      apiKey = process.env.API_KEY;
+    }
+  } catch (e) {
+    // process not defined, ignore
+  }
+
   if (!apiKey) return null;
   return new GoogleGenAI({ apiKey });
 };

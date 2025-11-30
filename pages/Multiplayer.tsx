@@ -43,7 +43,7 @@ const Multiplayer: React.FC = () => {
         setLobbyId(lobbyParam);
         setLoadingText("Joining Lobby...");
     } else {
-        setLobbyId(Math.random().toString(36).substring(7));
+        setLobbyId(Math.random().toString(36).substring(7).toUpperCase());
     }
 
     startMatchmaking();
@@ -179,7 +179,9 @@ const Multiplayer: React.FC = () => {
   };
 
   const copyInviteLink = () => {
-      const url = `${window.location.origin}${window.location.pathname}#/multiplayer?lobby=${lobbyId}`;
+      // Ensure we construct the link with the hash
+      const baseUrl = window.location.href.split('#')[0];
+      const url = `${baseUrl}#/multiplayer?lobby=${lobbyId}`;
       navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -224,17 +226,27 @@ const Multiplayer: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="mb-8 flex justify-between items-end border-b border-slate-200 dark:border-white/5 pb-6">
             <div>
                 <h2 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
                     <Zap className="text-neon-cyan fill-neon-cyan" /> MULTIPLAYER // RACE
                 </h2>
-                {searchParams.get('lobby') && (
-                    <span className="text-xs text-neon-cyan font-mono mt-1 block tracking-wider">
-                        LOBBY_ID: {lobbyId}
-                    </span>
-                )}
+                <div className="flex items-center gap-3 mt-2">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full border border-slate-200 dark:border-white/5">
+                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider">
+                            LOBBY: <span className="text-slate-800 dark:text-white font-bold">{lobbyId}</span>
+                        </span>
+                    </div>
+                    <button 
+                        onClick={copyInviteLink}
+                        className="flex items-center gap-2 px-3 py-1 bg-neon-purple/10 hover:bg-neon-purple/20 text-neon-purple rounded-full text-xs font-bold transition-colors active:scale-95 border border-neon-purple/20"
+                    >
+                        {copied ? <Check size={12} /> : <Share2 size={12} />}
+                        {copied ? 'COPIED!' : 'INVITE'}
+                    </button>
+                </div>
             </div>
             {status === 'COUNTDOWN' && (
                 <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-800 to-slate-400 dark:from-white dark:to-slate-500 animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
