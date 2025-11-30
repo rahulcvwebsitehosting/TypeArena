@@ -1,0 +1,5 @@
+{
+  "name": "TypeArena",
+  "description": "A competitive typing platform featuring single-player practice, simulated real-time multiplayer races, detailed analytics, and an RPG-style ranking system from Bronze to Grandmaster.",
+  "requestFramePermissions": []
+}
