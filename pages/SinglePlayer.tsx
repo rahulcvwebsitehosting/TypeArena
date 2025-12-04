@@ -3,7 +3,7 @@ import { Difficulty, GameMode, GameResult } from '../types';
 import { generatePracticeText, analyzePerformance } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, RefreshCw, Bot, Terminal } from 'lucide-react';
+import { Loader2, RefreshCw, Bot, Terminal, Zap } from 'lucide-react';
 
 const SinglePlayer: React.FC = () => {
   const { addMatch } = useAuth();
@@ -54,6 +54,9 @@ const SinglePlayer: React.FC = () => {
     setAnalyzing(false);
   };
 
+  // Parse analysis string (Tip | Hype)
+  const [tip, hype] = analysis && analysis.includes('|') ? analysis.split('|') : [analysis, null];
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -75,7 +78,7 @@ const SinglePlayer: React.FC = () => {
                         }
                     }}
                     disabled={loading}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 active:scale-95 ${
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 ${
                         difficulty === d 
                         ? 'bg-neon-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' 
                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/5'
@@ -128,28 +131,63 @@ const SinglePlayer: React.FC = () => {
                   </div>
               </div>
 
-              {/* AI Coach - Cyberpunk Style */}
-              <div className="relative bg-gradient-to-r from-neon-purple/10 to-transparent border-l-4 border-neon-purple p-6 rounded-r-xl mb-8">
-                  <div className="flex items-start gap-4">
-                      <div className="p-3 bg-neon-purple/20 rounded-full shrink-0 animate-pulse">
-                          <Bot className="text-neon-purple" size={24} />
+              {/* AI Coach - Cyberpunk HUD Style */}
+              <div className="relative group overflow-hidden rounded-2xl border border-neon-purple/30 bg-slate-100 dark:bg-black/40 p-6 transition-all hover:border-neon-purple/50 mb-8 shadow-lg">
+                  {/* Animated Background Mesh */}
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"></div>
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row gap-6 items-center">
+                      {/* Hologram Avatar */}
+                      <div className="shrink-0 relative">
+                          <div className="h-16 w-16 rounded-xl border-2 border-neon-purple bg-slate-800 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.5)] transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
+                              <Bot size={32} className="text-white" />
+                          </div>
+                          <div className="absolute -top-2 -right-2 flex h-4 w-4">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-4 w-4 bg-neon-green"></span>
+                          </div>
                       </div>
-                      <div>
-                        <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-2 font-mono">AI SENSEI_</h4>
-                        {analyzing ? (
-                            <div className="flex items-center gap-2 text-neon-purple text-sm font-mono">
-                                <Loader2 className="animate-spin" size={16} /> ANALYZING_TYPING_PATTERN...
-                            </div>
-                        ) : (
-                            <p className="text-slate-600 dark:text-slate-300 italic text-lg leading-relaxed">"{analysis}"</p>
-                        )}
+
+                      {/* Data Stream */}
+                      <div className="flex-1 w-full space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-300 dark:border-white/10 pb-2">
+                              <span className="text-neon-purple font-mono text-xs tracking-[0.2em] font-bold flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-neon-purple rounded-sm"></span>
+                                  AI_COACH_UPLINK
+                              </span>
+                              {analyzing && <span className="text-xs font-mono text-slate-500 animate-pulse">DECRYPTING...</span>}
+                          </div>
+                          
+                          {analyzing ? (
+                              <div className="py-2 flex items-center justify-center text-slate-400 font-mono text-sm gap-2">
+                                  <Loader2 className="animate-spin text-neon-purple" size={16} /> 
+                                  <span>Processing Biometric Data...</span>
+                              </div>
+                          ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3 border-l-4 border-neon-cyan shadow-sm">
+                                      <span className="flex items-center gap-2 text-[10px] text-neon-cyan uppercase font-bold mb-1">
+                                          <Terminal size={10} /> Tactical Tip
+                                      </span>
+                                      <p className="text-slate-800 dark:text-white font-medium text-sm leading-tight">"{tip?.trim()}"</p>
+                                  </div>
+                                  {hype && (
+                                      <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3 border-l-4 border-neon-pink shadow-sm">
+                                          <span className="flex items-center gap-2 text-[10px] text-neon-pink uppercase font-bold mb-1">
+                                              <Zap size={10} /> Hype Rating
+                                          </span>
+                                          <p className="text-slate-800 dark:text-white font-black italic tracking-wide text-sm">"{hype?.trim()}"</p>
+                                      </div>
+                                  )}
+                              </div>
+                          )}
                       </div>
                   </div>
               </div>
 
               <button 
                 onClick={loadGame}
-                className="w-full py-4 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-95 border border-slate-200 dark:border-white/10 flex items-center justify-center gap-3 text-lg group"
+                className="w-full py-4 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 border border-slate-200 dark:border-white/10 flex items-center justify-center gap-3 text-lg group"
               >
                   <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" /> REBOOT_SESSION
               </button>

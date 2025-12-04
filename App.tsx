@@ -9,6 +9,7 @@ import Multiplayer from './pages/Multiplayer';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import About from './pages/About';
+import CursorEffects from './components/CursorEffects';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <CursorEffects />
         <Router>
           <AppRoutes />
         </Router>

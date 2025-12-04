@@ -2,8 +2,8 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getNextRankXP, XP_PER_RANK } from '../constants';
-import { Trophy, Activity, Calendar } from 'lucide-react';
+import { getLevelProgress } from '../constants';
+import { Trophy, Activity, Calendar, Flame } from 'lucide-react';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -11,9 +11,8 @@ const Profile: React.FC = () => {
 
   if (!user) return <div>Please login</div>;
 
-  const nextRankXp = getNextRankXP(user.xp);
-  const currentLevelXp = user.xp % XP_PER_RANK;
-  const progress = (currentLevelXp / XP_PER_RANK) * 100;
+  const progressData = getLevelProgress(user.xp);
+  const progress = progressData.percentage;
 
   const chartData = [...user.matches].reverse().map((m, i) => ({
     name: i.toString(),
@@ -42,7 +41,13 @@ const Profile: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-center md:items-start mb-6">
                     <div>
                         <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tight mb-1">{user.username}</h2>
-                        <p className="text-neon-cyan font-bold tracking-widest uppercase text-sm border-2 border-neon-cyan/30 inline-block px-3 py-1 rounded-full">{user.rank}</p>
+                        <div className="flex items-center gap-3 justify-center md:justify-start">
+                            <p className="text-neon-cyan font-bold tracking-widest uppercase text-sm border-2 border-neon-cyan/30 inline-block px-3 py-1 rounded-full">{user.rank}</p>
+                            <div className="flex items-center gap-1 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-xs font-bold text-orange-500">
+                                <Flame size={12} className="fill-orange-500 animate-pulse" />
+                                {user.winStreak || 0} Streak
+                            </div>
+                        </div>
                     </div>
                     <div className="mt-4 md:mt-0 text-center md:text-right bg-slate-100 dark:bg-white/5 p-4 rounded-xl border border-slate-200 dark:border-white/5">
                         <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest font-bold">Total XP</p>
@@ -53,11 +58,11 @@ const Profile: React.FC = () => {
                 {/* XP Bar */}
                 <div className="relative h-6 bg-slate-200 dark:bg-black/40 rounded-full overflow-hidden border border-slate-300 dark:border-white/5">
                     <div 
-                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-neon-purple to-neon-cyan shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+                        className={`absolute top-0 left-0 h-full bg-gradient-to-r from-neon-purple to-neon-cyan shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all duration-1000 ${progress === 0 ? 'opacity-0' : 'opacity-100'}`}
                         style={{ width: `${progress}%` }}
                     ></div>
-                    <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-white tracking-widest uppercase">
-                        Progress to next rank
+                    <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-white tracking-widest uppercase z-10 drop-shadow-md">
+                        {progressData.currentRankXP} / {progressData.rankTotalXP} XP TO NEXT RANK
                     </div>
                 </div>
             </div>
@@ -71,37 +76,44 @@ const Profile: React.FC = () => {
                     <h3 className="text-xl font-bold text-slate-800 dark:text-white">WPM History</h3>
                 </div>
                 <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                            <defs>
-                                <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5}/>
-                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} vertical={false} />
-                            <XAxis dataKey="name" hide />
-                            <YAxis stroke="#64748b" tick={{fill: '#64748b', fontSize: 12}} tickLine={false} axisLine={false} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: chartTooltipBg, 
-                                    borderColor: chartTooltipBorder, 
-                                    color: chartTooltipText,
-                                    borderRadius: '12px',
-                                    boxShadow: '0 10px 30px -10px rgba(0,0,0,0.2)' 
-                                }}
-                                itemStyle={{ color: chartTooltipText }}
-                            />
-                            <Area 
-                                type="monotone" 
-                                dataKey="wpm" 
-                                stroke="#8b5cf6" 
-                                strokeWidth={3}
-                                fillOpacity={1} 
-                                fill="url(#colorWpm)" 
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    {chartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData}>
+                                <defs>
+                                    <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5}/>
+                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} vertical={false} />
+                                <XAxis dataKey="name" hide />
+                                <YAxis stroke="#64748b" tick={{fill: '#64748b', fontSize: 12}} tickLine={false} axisLine={false} />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        backgroundColor: chartTooltipBg, 
+                                        borderColor: chartTooltipBorder, 
+                                        color: chartTooltipText,
+                                        borderRadius: '12px',
+                                        boxShadow: '0 10px 30px -10px rgba(0,0,0,0.2)' 
+                                    }}
+                                    itemStyle={{ color: chartTooltipText }}
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="wpm" 
+                                    stroke="#8b5cf6" 
+                                    strokeWidth={3}
+                                    fillOpacity={1} 
+                                    fill="url(#colorWpm)" 
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+                             <Activity className="opacity-20" size={48} />
+                             <p>Play matches to see your progress chart</p>
+                        </div>
+                    )}
                 </div>
             </div>
 

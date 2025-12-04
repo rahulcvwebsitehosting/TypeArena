@@ -1,4 +1,4 @@
-import { Rank } from './types';
+import { Rank, LevelProgress } from './types';
 
 export const RANKS_ORDERED = [
   Rank.BRONZE_I, Rank.BRONZE_II, Rank.BRONZE_III,
@@ -11,20 +11,90 @@ export const RANKS_ORDERED = [
   Rank.GRANDMASTER_I, Rank.GRANDMASTER_II, Rank.GRANDMASTER_III, Rank.GRANDMASTER_IV, Rank.GRANDMASTER_V
 ];
 
-export const XP_PER_RANK = 1000;
+// Helper to determine XP needed for a specific rank tier
+const getXPForRankIndex = (index: number): number => {
+  // Bronze: 600 per level
+  if (index < 3) return 600;
+  // Silver: 800 per level
+  if (index < 6) return 800;
+  // Gold: 1000 per level
+  if (index < 9) return 1000;
+  // Platinum: 1200 per level
+  if (index < 12) return 1200;
+  // Diamond: 1500 per level
+  if (index < 15) return 1500;
+  // Heroic: 2000 per level
+  if (index < 19) return 2000;
+  // Master: 3000 per level
+  if (index < 23) return 3000;
+  // Grandmaster: 5000 per level
+  return 5000;
+};
 
+// Calculate cumulative XP required to REACH a specific rank index
+const getCumulativeXP = (targetIndex: number): number => {
+  let total = 0;
+  for (let i = 0; i < targetIndex; i++) {
+    total += getXPForRankIndex(i);
+  }
+  return total;
+};
+
+// Finds the current rank based on total XP
 export const getRankFromXP = (xp: number): Rank => {
-  const level = Math.floor(xp / XP_PER_RANK);
-  if (level >= RANKS_ORDERED.length) return RANKS_ORDERED[RANKS_ORDERED.length - 1];
-  return RANKS_ORDERED[level];
+  let currentXP = 0;
+  for (let i = 0; i < RANKS_ORDERED.length; i++) {
+    const xpNeeded = getXPForRankIndex(i);
+    if (xp < currentXP + xpNeeded) {
+      return RANKS_ORDERED[i];
+    }
+    currentXP += xpNeeded;
+  }
+  return RANKS_ORDERED[RANKS_ORDERED.length - 1];
 };
 
+// Returns total XP required to reach the NEXT rank
 export const getNextRankXP = (xp: number): number => {
-  const level = Math.floor(xp / XP_PER_RANK);
-  return (level + 1) * XP_PER_RANK;
+  let currentXP = 0;
+  for (let i = 0; i < RANKS_ORDERED.length; i++) {
+    const xpNeeded = getXPForRankIndex(i);
+    if (xp < currentXP + xpNeeded) {
+      return currentXP + xpNeeded;
+    }
+    currentXP += xpNeeded;
+  }
+  return currentXP; // Maxed out
 };
 
-// Fallback texts if Gemini is unavailable
+// Returns detailed progress for UI bars
+export const getLevelProgress = (xp: number): LevelProgress => {
+  let accumulatedXP = 0;
+  
+  for (let i = 0; i < RANKS_ORDERED.length; i++) {
+    const xpForThisLevel = getXPForRankIndex(i);
+    
+    // If current total XP is within this level's range
+    if (xp < accumulatedXP + xpForThisLevel) {
+      const currentRankXP = xp - accumulatedXP;
+      return {
+        currentRankXP,
+        rankTotalXP: xpForThisLevel,
+        percentage: (currentRankXP / xpForThisLevel) * 100
+      };
+    }
+    
+    accumulatedXP += xpForThisLevel;
+  }
+  
+  // Max level
+  return {
+    currentRankXP: 1,
+    rankTotalXP: 1,
+    percentage: 100
+  };
+};
+
+// Fallback texts
 export const FALLBACK_TEXTS = {
   Easy: "The sun is shining bright today. Birds are singing in the trees. It is a good day to go for a walk in the park.",
   Medium: "However, the weather can change quickly; clouds might gather, and rain could fall, creating a cozy atmosphere indoors.",

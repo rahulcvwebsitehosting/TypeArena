@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameResult, Opponent } from '../types';
+import { Clock } from 'lucide-react';
 
 interface TypingEngineProps {
   text: string;
@@ -11,6 +12,7 @@ interface TypingEngineProps {
 const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameFinish, opponents }) => {
   const [input, setInput] = useState('');
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(0); // For visual timer
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,6 +26,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
     if (isGameActive) {
       setInput('');
       setStartTime(null);
+      setCurrentTime(0);
       setWpm(0);
       setAccuracy(100);
       setErrors(0);
@@ -53,6 +56,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
     setAccuracy(netAccuracy);
   }, [input, startTime, errors]);
 
+  // Main Stats Interval
   useEffect(() => {
     const interval = setInterval(() => {
         if (startTime && isGameActive && input.length < text.length) {
@@ -61,6 +65,24 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
     }, 500);
     return () => clearInterval(interval);
   }, [startTime, isGameActive, input.length, text.length, calculateStats]);
+
+  // High-performance Timer Interval
+  useEffect(() => {
+    let animationFrameId: number;
+    
+    const updateTimer = () => {
+        if (startTime && isGameActive && input.length < text.length) {
+            setCurrentTime(Date.now() - startTime);
+            animationFrameId = requestAnimationFrame(updateTimer);
+        }
+    };
+
+    if (startTime && isGameActive) {
+        animationFrameId = requestAnimationFrame(updateTimer);
+    }
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [startTime, isGameActive, input.length, text.length]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isGameActive) return;
@@ -193,8 +215,38 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
     )
   }
 
+  // Format time helpers
+  const formatSeconds = (ms: number) => Math.floor(ms / 1000).toString().padStart(2, '0');
+  const formatMillis = (ms: number) => Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
+
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto relative">
+      
+      {/* GAMING TIMER HUD */}
+      {startTime && isGameActive && (
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-30 animate-fade-in">
+           <div className="relative bg-black/90 dark:bg-abyss/90 px-8 py-2 skew-x-[-15deg] border-x-4 border-neon-cyan shadow-[0_0_30px_rgba(6,182,212,0.4)] ring-1 ring-white/10 group">
+                {/* Inner Glow */}
+                <div className="absolute inset-0 bg-neon-cyan/10 animate-pulse"></div>
+                
+                <div className="skew-x-[15deg] flex items-center gap-3 relative z-10">
+                    <Clock size={18} className="text-neon-cyan animate-spin-slow" style={{ animationDuration: '3s' }} />
+                    <div className="flex items-baseline font-mono font-black text-white tracking-widest leading-none">
+                        <span className="text-3xl drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">
+                            {formatSeconds(currentTime)}
+                        </span>
+                        <span className="text-xl text-neon-cyan mx-1 animate-pulse">.</span>
+                        <span className="text-xl text-neon-cyan/80 w-8">
+                            {formatMillis(currentTime)}
+                        </span>
+                    </div>
+                </div>
+           </div>
+           {/* Decorative bottom element */}
+           <div className="h-1 w-16 mx-auto bg-neon-cyan shadow-[0_0_10px_#06b6d4]"></div>
+        </div>
+      )}
+
       {/* HUD */}
       <div className="flex justify-between items-center mb-8 p-6 glass-panel rounded-2xl border-neon-purple/20">
         <div className="text-center w-1/3 border-r border-slate-200 dark:border-white/10">

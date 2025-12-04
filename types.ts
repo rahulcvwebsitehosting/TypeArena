@@ -41,6 +41,7 @@ export interface User {
   matches: MatchStats[];
   bestWpm: number;
   avgWpm: number;
+  winStreak: number;
 }
 
 export interface GameResult {
@@ -59,4 +60,10 @@ export interface Opponent {
   accuracy: number;
   color: string;
   isFinished: boolean;
+}
+
+export interface LevelProgress {
+  currentRankXP: number; // XP accumulated in current rank
+  rankTotalXP: number;   // XP needed to finish current rank
+  percentage: number;    // 0-100
 }

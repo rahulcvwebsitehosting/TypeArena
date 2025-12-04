@@ -102,20 +102,20 @@ const About: React.FC = () => {
                 </p>
 
                 <div className="flex flex-wrap justify-center md:justify-start gap-3 pt-2">
-                    <a href="mailto:rahulcvfiitjee@gmail.com" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-purple transition-all active:scale-95 group">
+                    <a href="mailto:rahulcvfiitjee@gmail.com" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-purple transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 group">
                         <Mail className="text-slate-500 dark:text-slate-400 group-hover:text-neon-purple" size={20} />
                     </a>
-                    <a href="https://linkedin.com/in/rahulshyamcivil" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-cyan transition-all active:scale-95 group">
+                    <a href="https://linkedin.com/in/rahulshyamcivil" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-cyan transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 group">
                         <Linkedin className="text-slate-500 dark:text-slate-400 group-hover:text-neon-cyan" size={20} />
                     </a>
-                    <a href="https://github.com/rahulcvwebsitehosting" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-800 dark:hover:border-white transition-all active:scale-95 group">
+                    <a href="https://github.com/rahulcvwebsitehosting" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-800 dark:hover:border-white transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 group">
                         <Github className="text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white" size={20} />
                     </a>
                     <a 
                         href="https://drive.google.com/file/d/11BXxzDZneovwL4tFqS0xxujDtX87W1JI/view?usp=sharing" 
                         target="_blank" 
                         rel="noreferrer"
-                        className="px-6 py-3 bg-neon-purple hover:bg-purple-600 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-neon-purple/20 flex items-center gap-2"
+                        className="px-6 py-3 bg-neon-purple hover:bg-purple-600 text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 shadow-lg shadow-neon-purple/20 flex items-center gap-2"
                     >
                         <Zap size={18} /> Download CV
                     </a>
@@ -235,7 +235,7 @@ const About: React.FC = () => {
                     href={p.link} 
                     target="_blank" 
                     rel="noreferrer"
-                    className="group relative overflow-hidden bg-white/80 dark:bg-abyss/60 backdrop-blur rounded-2xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 hover:-translate-y-1 active:scale-95"
+                    className="group relative overflow-hidden bg-white/80 dark:bg-abyss/60 backdrop-blur rounded-2xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] active:scale-95"
                 >
                     <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${p.color}`}></div>
                     <div className={`absolute -right-12 -top-12 w-32 h-32 bg-gradient-to-br ${p.color} opacity-10 blur-3xl rounded-full group-hover:opacity-20 transition-opacity`}></div>

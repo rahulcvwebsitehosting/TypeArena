@@ -1,7 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Rank, MatchStats } from '../types';
+import { User, Rank, MatchStats, GameMode } from '../types';
 import { getRankFromXP, RANKS_ORDERED } from '../constants';
-import { auth } from '../services/firebase';
+import { auth, isMockMode } from '../services/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -24,7 +25,7 @@ interface AuthContextType {
   signup: (email: string, pass: string, username: string) => Promise<void>;
   guestLogin: () => void;
   logout: () => Promise<void>;
-  addMatch: (stats: MatchStats, xpGained: number) => void;
+  addMatch: (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +35,8 @@ const INITIAL_STATS = {
   rank: Rank.BRONZE_I,
   matches: [],
   bestWpm: 0,
-  avgWpm: 0
+  avgWpm: 0,
+  winStreak: 0
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -44,31 +46,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sync with Firebase Auth State
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // User is signed in via Firebase
-        initializeUser(
-            firebaseUser.uid, 
-            firebaseUser.email || '', 
-            firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
-            false
-        );
-      } else {
-        // User is signed out from Firebase. 
-        // We only clear state if we aren't using a local mock session
+    if (isMockMode) {
+        // MOCK MODE: Skip Firebase Listener entirely
+        console.log("Running in Auth Simulation Mode (Offline)");
         
-        // Check if we have a persisted mock user in session
-        const stored = localStorage.getItem('typearena_current_user_id');
-        if (!stored) {
-             setUser(null);
+        // Check for persisted mock session
+        const storedUid = localStorage.getItem('typearena_current_user_id');
+        const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
+
+        if (storedUid) {
+            // Retrieve full user object
+            const storageKey = `typearena_data_${storedUid}`;
+            const storedData = localStorage.getItem(storageKey);
+            if (storedData) {
+                setUser(JSON.parse(storedData));
+            }
+        } else if (isGuest) {
+            // Guest session
+            guestLogin();
         }
-      }
-      setLoading(false);
-    });
+        
+        setLoading(false);
+        return;
+    }
+
+    // REAL MODE: Use Firebase Listener
+    const unsubscribe = onAuthStateChanged(
+        auth, 
+        (firebaseUser) => {
+            if (firebaseUser) {
+                initializeUser(
+                    firebaseUser.uid, 
+                    firebaseUser.email || '', 
+                    firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
+                    false
+                );
+            } else {
+                const stored = localStorage.getItem('typearena_current_user_id');
+                if (!stored) setUser(null);
+            }
+            setLoading(false);
+        },
+        (error) => {
+            console.warn("Firebase Auth Init Error:", error);
+            setLoading(false);
+        }
+    );
     return unsubscribe;
   }, []);
 
-  // Universal User Loader (Works for Real Firebase, Mock, and Guest)
+  // Universal User Loader
   const initializeUser = (uid: string, email: string, username: string, isGuest: boolean) => {
     const storageKey = `typearena_data_${uid}`;
     const storedData = localStorage.getItem(storageKey);
@@ -76,7 +103,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (storedData) {
       setUser(JSON.parse(storedData));
     } else {
-      // Create new user entry
       const newUser: User = {
         id: uid,
         email: email,
@@ -96,56 +122,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const saveUserToStorage = (u: User) => {
     setUser(u);
-    // Persist data for both guests and real users locally for this demo
     localStorage.setItem(`typearena_data_${u.id}`, JSON.stringify(u));
   };
 
-  const executeAuthAction = async (
-      action: () => Promise<any>, 
-      fallbackAction: () => void
-  ) => {
+  const login = async (email: string, pass: string) => {
+    // If Mock Mode OR if Firebase isn't configured, use local simulation
+    if (isMockMode) {
+        await new Promise(resolve => setTimeout(resolve, 800)); // Fake network delay
+        const mockId = 'mock_' + btoa(email).replace(/=/g, '');
+        initializeUser(mockId, email, email.split('@')[0], false);
+        return;
+    }
+
     try {
-        await action();
+        await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
-        // Detect Invalid API Key or Config problems
+        console.warn("Firebase Login Error:", error.code);
+        // Robust Fallback: If network/api error, degrade to mock mode seamlessly
         if (
-            error.code === 'auth/api-key-not-valid' || 
-            error.code === 'auth/configuration-not-found' ||
-            error.code === 'auth/project-not-found' ||
-            error.code === 'auth/internal-error'
+          error.code === 'auth/api-key-not-valid' || 
+          error.code === 'auth/operation-not-allowed' || 
+          error.code === 'auth/internal-error' ||
+          error.code === 'auth/network-request-failed'
         ) {
-            console.warn(`Firebase Config Error (${error.code}). Switching to Local Mock Mode.`);
-            fallbackAction();
-        } else {
-            // Real auth error
-            throw error;
+            console.warn("Falling back to local session due to configuration error.");
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const mockId = 'offline_' + btoa(email).replace(/=/g, '');
+            initializeUser(mockId, email, email.split('@')[0], false);
+            return;
         }
+        throw error;
     }
   };
 
-  const login = async (email: string, pass: string) => {
-    await executeAuthAction(
-        () => signInWithEmailAndPassword(auth, email, pass),
-        () => {
-            // Mock Login: Deterministic ID based on email
-            const mockId = 'mock_' + btoa(email).replace(/=/g, '');
-            initializeUser(mockId, email, email.split('@')[0], false);
-        }
-    );
-  };
-
   const signup = async (email: string, pass: string, username: string) => {
-    await executeAuthAction(
-        async () => {
-            const res = await createUserWithEmailAndPassword(auth, email, pass);
-            initializeUser(res.user.uid, email, username, false);
-        },
-        () => {
-            // Mock Signup
-            const mockId = 'mock_' + btoa(email).replace(/=/g, '');
+    if (isMockMode) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        const mockId = 'mock_' + btoa(email).replace(/=/g, '');
+        initializeUser(mockId, email, username, false);
+        return;
+    }
+
+    try {
+        const res = await createUserWithEmailAndPassword(auth, email, pass);
+        initializeUser(res.user.uid, email, username, false);
+    } catch (error: any) {
+        console.warn("Firebase Signup Error:", error.code);
+        if (
+          error.code === 'auth/api-key-not-valid' || 
+          error.code === 'auth/operation-not-allowed' || 
+          error.code === 'auth/internal-error' ||
+          error.code === 'auth/network-request-failed'
+        ) {
+            console.warn("Falling back to local session due to configuration error.");
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const mockId = 'offline_' + btoa(email).replace(/=/g, '');
             initializeUser(mockId, email, username, false);
+            return;
         }
-    );
+        throw error;
+    }
   };
 
   const guestLogin = () => {
@@ -154,29 +190,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    try {
-        await signOut(auth);
-    } catch (e) {
-        console.warn("Firebase signout failed (expected if in mock mode)");
+    if (!isMockMode) {
+        try { await signOut(auth); } catch (e) { console.warn(e); }
     }
     setUser(null);
     localStorage.removeItem('typearena_is_guest');
     localStorage.removeItem('typearena_current_user_id');
   };
 
-  const addMatch = (stats: MatchStats, xpGained: number) => {
+  const addMatch = (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => {
     if (!user) return;
 
+    let newStreak = user.winStreak || 0;
+    let finalXp = baseXp;
+
+    if (stats.mode === GameMode.MULTIPLAYER && typeof isMultiplayerWin !== 'undefined') {
+        if (isMultiplayerWin) {
+            newStreak += 1;
+            const streakBonus = Math.min(newStreak * 10, 100);
+            finalXp += streakBonus;
+        } else {
+            newStreak = 0;
+        }
+    }
+
     const currentRank = user.rank;
-    const newXp = user.xp + xpGained;
+    const newXp = user.xp + finalXp;
     const newRank = getRankFromXP(newXp);
     
-    // Check for Rank Up
     if (newRank !== currentRank) {
         setLevelUpEvent({ oldRank: currentRank, newRank: newRank });
     }
 
-    const newMatches = [stats, ...user.matches].slice(0, 50); // Keep last 50
+    const newMatches = [stats, ...user.matches].slice(0, 50);
     const newBest = Math.max(user.bestWpm, stats.wpm);
     const totalWpm = newMatches.reduce((acc, m) => acc + m.wpm, 0);
     const avg = newMatches.length > 0 ? Math.round(totalWpm / newMatches.length) : 0;
@@ -187,7 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       rank: newRank,
       matches: newMatches,
       bestWpm: newBest,
-      avgWpm: avg
+      avgWpm: avg,
+      winStreak: newStreak
     };
 
     saveUserToStorage(updatedUser);

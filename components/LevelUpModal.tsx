@@ -13,8 +13,11 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldRank, newRank, onDismiss
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in" onClick={onDismiss}>
       <div className="relative flex flex-col items-center justify-center p-12 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
         
-        {/* Rays Background */}
+        {/* Shockwave Effect */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div className="absolute w-[100px] h-[100px] rounded-full border-4 border-neon-cyan/50 animate-[shockwave_1s_ease-out_infinite]"></div>
+            <div className="absolute w-[100px] h-[100px] rounded-full border-4 border-neon-purple/50 animate-[shockwave_1s_ease-out_infinite_0.3s]"></div>
+            
             <div className="w-[800px] h-[800px] bg-gradient-to-tr from-neon-purple/20 to-neon-cyan/20 rounded-full blur-[100px] animate-pulse"></div>
             <div className="w-[600px] h-[600px] border-[50px] border-dashed border-white/5 rounded-full animate-spin-slow opacity-30"></div>
             <div className="w-[400px] h-[400px] border-[2px] border-neon-cyan/20 rounded-full animate-reverse-spin opacity-50"></div>
@@ -38,7 +41,7 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldRank, newRank, onDismiss
             </div>
 
             {/* Shield Body */}
-            <div className="w-48 h-56 bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 rounded-[3rem] border-4 border-yellow-400 shadow-[0_0_50px_rgba(234,179,8,0.5)] flex items-center justify-center relative overflow-hidden">
+            <div className="w-48 h-56 bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 rounded-[3rem] border-4 border-yellow-400 shadow-[0_0_50px_rgba(234,179,8,0.5)] flex items-center justify-center relative overflow-hidden group">
                 {/* Glossy Overlay */}
                 <div className="absolute top-0 left-0 w-full h-1/2 bg-white/10 rounded-t-[2.5rem] skew-y-6 transform origin-top-left"></div>
                 
@@ -46,13 +49,14 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldRank, newRank, onDismiss
                 <div className="absolute inset-2 border border-white/20 rounded-[2.5rem]"></div>
 
                 {/* Rank Icon */}
-                <div className="relative z-20">
+                <div className="relative z-20 transform group-hover:scale-110 transition-transform duration-300">
                     <Crown size={80} className="text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)] animate-pulse" />
                 </div>
                 
                 {/* Particles */}
                 <div className="absolute top-10 left-10 w-2 h-2 bg-white rounded-full animate-ping"></div>
                 <div className="absolute bottom-10 right-10 w-1 h-1 bg-neon-cyan rounded-full animate-ping delay-300"></div>
+                <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-white/30 rounded-full blur-xl animate-pulse"></div>
             </div>
 
             {/* Star Topper */}
@@ -66,14 +70,14 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldRank, newRank, onDismiss
 
         {/* Text Banner */}
         <div className="relative z-20 mt-8 text-center space-y-2">
-            <h2 className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] transform -skew-x-12 animate-[fadeIn_0.5s_ease-out]">
+            <h2 className="text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] transform -skew-x-12 animate-[fadeIn_0.5s_ease-out] scale-110">
                 LEVEL UP!
             </h2>
             
             <div className="flex items-center justify-center gap-4 text-xl font-bold text-white/80">
                 <span className="line-through opacity-50">{oldRank}</span>
                 <Zap className="text-neon-cyan animate-pulse" />
-                <span className="text-3xl text-neon-cyan drop-shadow-[0_0_10px_#06b6d4]">{newRank}</span>
+                <span className="text-4xl text-neon-cyan drop-shadow-[0_0_10px_#06b6d4] font-black">{newRank}</span>
             </div>
         </div>
 
