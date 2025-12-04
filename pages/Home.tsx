@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Play, Users, Award, TrendingUp, Zap, ChevronRight, Flame } from 'lucide-react';
+import { Play, Users, Award, TrendingUp, Zap, ChevronRight, Flame, Globe, Lock } from 'lucide-react';
 import { getLevelProgress } from '../constants';
 
 const Home: React.FC = () => {
@@ -42,21 +42,15 @@ const Home: React.FC = () => {
       </header>
 
       {/* Main Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Single Player */}
         <div 
             onClick={(e) => handleCardClick(e, '/singleplayer')}
-            className="group relative p-8 glass-panel rounded-3xl hover:-translate-y-1 hover:scale-[1.02] active:scale-95 transition-all duration-300 border-t border-slate-200 dark:border-white/10 hover:border-neon-purple/50 overflow-hidden cursor-pointer"
+            className="group relative p-8 glass-panel rounded-3xl hover:-translate-y-1 hover:scale-[1.02] active:scale-95 transition-all duration-300 border-t border-slate-200 dark:border-white/10 hover:border-neon-purple/50 overflow-hidden cursor-pointer flex flex-col"
         >
-            {/* Background Glow */}
             <div className="absolute inset-0 bg-gradient-to-br from-neon-purple/0 to-neon-purple/5 group-hover:from-neon-purple/10 group-hover:to-neon-purple/20 transition-all duration-500"></div>
-            
-            {/* Click Ripples */}
             {ripples.map(r => (
-                <span 
-                    key={r.id} 
-                    className="absolute w-4 h-4 bg-neon-purple/40 rounded-full animate-click-burst pointer-events-none z-50" 
-                    style={{ left: r.x, top: r.y, transform: 'translate(-50%, -50%)' }}
-                />
+                <span key={r.id} className="absolute w-4 h-4 bg-neon-purple/40 rounded-full animate-click-burst pointer-events-none z-50" style={{ left: r.x, top: r.y, transform: 'translate(-50%, -50%)' }} />
             ))}
 
             <div className="relative z-10 flex flex-col h-full">
@@ -67,43 +61,65 @@ const Home: React.FC = () => {
                     <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-xs font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5">SOLO</span>
                 </div>
                 
-                <h2 className="text-3xl font-bold text-slate-800 dark:text-white mb-2 group-hover:text-neon-purple transition-colors">Practice Mode</h2>
-                <p className="text-slate-500 dark:text-slate-400 mb-8 flex-1">Sharpen your skills with AI-generated challenges. Custom difficulty and code modes available.</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 group-hover:text-neon-purple transition-colors">Practice Mode</h2>
+                <p className="text-slate-500 dark:text-slate-400 mb-6 flex-1 text-sm leading-relaxed">Sharpen your skills with AI-generated challenges. Custom difficulty and code modes available.</p>
                 
-                <div className="flex items-center text-neon-purple font-bold tracking-wide group-hover:gap-2 transition-all">
+                <div className="flex items-center text-neon-purple font-bold tracking-wide group-hover:gap-2 transition-all mt-auto">
                     START TYPING <ChevronRight size={20} />
                 </div>
             </div>
         </div>
 
+        {/* Ranked Multiplayer */}
         <div 
             onClick={(e) => handleCardClick(e, '/multiplayer')}
-            className="group relative p-8 glass-panel rounded-3xl hover:-translate-y-1 hover:scale-[1.02] active:scale-95 transition-all duration-300 border-t border-slate-200 dark:border-white/10 hover:border-neon-cyan/50 overflow-hidden cursor-pointer"
+            className="group relative p-8 glass-panel rounded-3xl hover:-translate-y-1 hover:scale-[1.02] active:scale-95 transition-all duration-300 border-t border-slate-200 dark:border-white/10 hover:border-neon-cyan/50 overflow-hidden cursor-pointer flex flex-col"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/0 to-neon-cyan/5 group-hover:from-neon-cyan/10 group-hover:to-neon-cyan/20 transition-all duration-500"></div>
-            
-             {/* Click Ripples */}
-             {ripples.map(r => (
-                <span 
-                    key={r.id} 
-                    className="absolute w-4 h-4 bg-neon-cyan/40 rounded-full animate-click-burst pointer-events-none z-50" 
-                    style={{ left: r.x, top: r.y, transform: 'translate(-50%, -50%)' }}
-                />
+            {ripples.map(r => (
+                <span key={r.id} className="absolute w-4 h-4 bg-neon-cyan/40 rounded-full animate-click-burst pointer-events-none z-50" style={{ left: r.x, top: r.y, transform: 'translate(-50%, -50%)' }} />
             ))}
 
             <div className="relative z-10 flex flex-col h-full">
                 <div className="flex justify-between items-start mb-6">
                     <div className="p-4 bg-neon-cyan/10 rounded-2xl border border-neon-cyan/20 group-hover:scale-110 transition-transform duration-300">
-                        <Users size={32} className="text-neon-cyan" />
+                        <Globe size={32} className="text-neon-cyan" />
                     </div>
-                    <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-xs font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5">PVP</span>
+                    <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-xs font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5">RANKED</span>
                 </div>
                 
-                <h2 className="text-3xl font-bold text-slate-800 dark:text-white mb-2 group-hover:text-neon-cyan transition-colors">Multiplayer Race</h2>
-                <p className="text-slate-500 dark:text-slate-400 mb-8 flex-1">Compete in real-time. Earn double XP. Prove your speed against the world.</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 group-hover:text-neon-cyan transition-colors">Multiplayer</h2>
+                <p className="text-slate-500 dark:text-slate-400 mb-6 flex-1 text-sm leading-relaxed">Compete in real-time ranked matches. Earn XP and climb the global leaderboard.</p>
                 
-                <div className="flex items-center text-neon-cyan font-bold tracking-wide group-hover:gap-2 transition-all">
+                <div className="flex items-center text-neon-cyan font-bold tracking-wide group-hover:gap-2 transition-all mt-auto">
                     FIND MATCH <ChevronRight size={20} />
+                </div>
+            </div>
+        </div>
+
+        {/* Play with Friends */}
+        <div 
+            onClick={(e) => handleCardClick(e, '/multiplayer?mode=host')}
+            className="group relative p-8 glass-panel rounded-3xl hover:-translate-y-1 hover:scale-[1.02] active:scale-95 transition-all duration-300 border-t border-slate-200 dark:border-white/10 hover:border-neon-green/50 overflow-hidden cursor-pointer flex flex-col"
+        >
+            <div className="absolute inset-0 bg-gradient-to-br from-neon-green/0 to-neon-green/5 group-hover:from-neon-green/10 group-hover:to-neon-green/20 transition-all duration-500"></div>
+            {ripples.map(r => (
+                <span key={r.id} className="absolute w-4 h-4 bg-neon-green/40 rounded-full animate-click-burst pointer-events-none z-50" style={{ left: r.x, top: r.y, transform: 'translate(-50%, -50%)' }} />
+            ))}
+
+            <div className="relative z-10 flex flex-col h-full">
+                <div className="flex justify-between items-start mb-6">
+                    <div className="p-4 bg-neon-green/10 rounded-2xl border border-neon-green/20 group-hover:scale-110 transition-transform duration-300">
+                        <Lock size={32} className="text-neon-green" />
+                    </div>
+                    <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-xs font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5">PRIVATE</span>
+                </div>
+                
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 group-hover:text-neon-green transition-colors">Race a Friend</h2>
+                <p className="text-slate-500 dark:text-slate-400 mb-6 flex-1 text-sm leading-relaxed">Create a private lobby and invite friends. 1v1 duels with custom rules.</p>
+                
+                <div className="flex items-center text-neon-green font-bold tracking-wide group-hover:gap-2 transition-all mt-auto">
+                    CREATE LOBBY <ChevronRight size={20} />
                 </div>
             </div>
         </div>

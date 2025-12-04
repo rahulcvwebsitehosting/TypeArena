@@ -55,13 +55,19 @@ const Multiplayer: React.FC = () => {
 
   useEffect(() => {
     const lobbyParam = searchParams.get('lobby');
+    const modeParam = searchParams.get('mode');
+
     if (lobbyParam) {
         // Joining a friend's lobby
         setLobbyId(lobbyParam);
         setLobbyMode('HOSTING'); // Treat guest same as host UI-wise for now
         setIsPrivateMatch(true);
         setLoadingText("Joined Party");
-    } 
+    } else if (modeParam === 'host') {
+        // Creating a new lobby directly
+        handleCreateLobby();
+    }
+    
     return () => {
         if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
     };
@@ -237,11 +243,16 @@ const Multiplayer: React.FC = () => {
       if (userRank === 1) baseXp = 200;
       if (userRank === 2) baseXp = 150;
 
-      // Calculate streak bonus for display (the real calc happens in context)
+      // Calculate streak bonus for display only
+      // Real bonus logic is in AuthContext
       if (isWin) {
           const nextStreak = (user?.winStreak || 0) + 1;
-          const bonus = Math.min(nextStreak * 10, 100);
-          setStreakBonus(bonus);
+          if (nextStreak > 1) {
+            const bonus = Math.min(nextStreak * 10, 100);
+            setStreakBonus(bonus);
+          } else {
+            setStreakBonus(0);
+          }
       } else {
           setStreakBonus(0);
       }
@@ -399,6 +410,12 @@ const Multiplayer: React.FC = () => {
                             ID: <span className="text-slate-800 dark:text-white font-bold">{lobbyId}</span>
                         </span>
                     </div>
+                     <button 
+                        onClick={copyInviteLink}
+                        className="flex items-center gap-2 px-3 py-1 bg-neon-purple/10 hover:bg-neon-purple/20 text-neon-purple rounded-full text-xs font-bold transition-colors uppercase"
+                    >
+                         {copied ? <Check size={12} /> : <Copy size={12} />} INVITE
+                    </button>
                 </div>
             </div>
             {status === 'COUNTDOWN' && (

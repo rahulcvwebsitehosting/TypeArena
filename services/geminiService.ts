@@ -16,7 +16,7 @@ const getClient = () => {
   if (!apiKey) {
       try {
         // @ts-ignore
-        if (import.meta.env.VITE_API_KEY) {
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
             // @ts-ignore
             apiKey = import.meta.env.VITE_API_KEY;
         }

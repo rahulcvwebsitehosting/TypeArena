@@ -207,8 +207,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (stats.mode === GameMode.MULTIPLAYER && typeof isMultiplayerWin !== 'undefined') {
         if (isMultiplayerWin) {
             newStreak += 1;
-            const streakBonus = Math.min(newStreak * 10, 100);
-            finalXp += streakBonus;
+            // Only award bonus if streak is greater than 1
+            if (newStreak > 1) {
+                const streakBonus = Math.min(newStreak * 10, 100);
+                finalXp += streakBonus;
+            }
         } else {
             newStreak = 0;
         }
