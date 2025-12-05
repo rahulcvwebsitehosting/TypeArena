@@ -4,11 +4,9 @@ import { GameMode, GameResult, Difficulty, Opponent, Rank } from '../types';
 import { generatePracticeText } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, Users, Trophy, Home, Share2, Copy, Check, Zap, Medal, Flag, Flame, ArrowLeft, ArrowRight, RefreshCw, Lock, Globe, User, Radio } from 'lucide-react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Loader2, Users, Check, Copy, Zap, Flag, Flame, ArrowLeft, ArrowRight, RefreshCw, Lock, Globe, User } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Confetti from '../components/Confetti';
-
-const { useNavigate, useSearchParams } = ReactRouterDOM;
 
 const BOT_NAMES = ['Speedster_99', 'CodeNinja', 'TypeMaster_X', 'KeyboardWarrior', 'FingerSlippage', 'Glitch_Runner', 'Neon_Viper', 'Cyber_Wraith'];
 const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -27,7 +25,7 @@ type LobbyMode = 'SELECT' | 'HOSTING' | 'JOINED' | 'SEARCHING';
 const Multiplayer: React.FC = () => {
   const { addMatch, user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   
   const [lobbyMode, setLobbyMode] = useState<LobbyMode>('SELECT');
   const [status, setStatus] = useState<'IDLE' | 'SEARCHING' | 'COUNTDOWN' | 'RACING' | 'FINISHED'>('IDLE');
@@ -71,9 +69,9 @@ const Multiplayer: React.FC = () => {
         
         if (hostParam) {
             setLobbyMode('JOINED'); // Differentiate guest state
-            setHostName(hostParam);
+            setHostName(decodeURIComponent(hostParam));
             setHostWpm(wpmParam ? parseInt(wpmParam) : 40);
-            setLoadingText(`Syncing with ${hostParam}...`);
+            setLoadingText(`Syncing with ${decodeURIComponent(hostParam)}...`);
         } else {
             setLobbyMode('HOSTING'); // Fallback if no host info
             setLoadingText("Joined Party");
@@ -171,7 +169,7 @@ const Multiplayer: React.FC = () => {
 
     for (let i = 0; i < numBots; i++) {
         let botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
-        let botWpm = Math.floor(Math.random() * maxVar) + minWpm;
+        let botWpm = Math.max(10, Math.floor(Math.random() * maxVar) + minWpm);
         let botAcc = Math.floor(Math.random() * (maxAcc - minAcc + 1)) + minAcc;
 
         if (isPrivate) {
@@ -179,13 +177,13 @@ const Multiplayer: React.FC = () => {
             if (hostName) {
                 // We are GUEST: Race against HOST (Ghost)
                 botName = hostName;
-                // Use host's WPM exactly
+                // STRICTLY use Host's WPM, no randomization
                 botWpm = hostWpm > 0 ? hostWpm : 40;
                 botAcc = 96; // High accuracy for ghost
             } else {
-                // We are HOST: Race against CHALLENGER (Balanced)
+                // We are HOST: Race against CHALLENGER
                 botName = "Challenger";
-                // Match User's Avg WPM exactly for a fair fight
+                // STRICTLY match User's Avg WPM
                 botWpm = user?.avgWpm && user.avgWpm > 0 ? user.avgWpm : 40;
                 botAcc = 94;
             }
@@ -195,7 +193,7 @@ const Multiplayer: React.FC = () => {
             id: `bot-${i}`,
             name: botName,
             progress: 0,
-            wpm: Math.max(10, botWpm), // Ensure min speed
+            wpm: botWpm,
             accuracy: botAcc,
             color: COLORS[i % COLORS.length],
             isFinished: false
@@ -232,6 +230,7 @@ const Multiplayer: React.FC = () => {
               
               const updated = prev.map(bot => {
                   if (bot.isFinished) return bot;
+                  // Use strict WPM for calculations
                   const expectedChars = bot.wpm * 5 * elapsedMin;
                   const progress = Math.min(100, (expectedChars / textLength) * 100);
                   
@@ -276,7 +275,7 @@ const Multiplayer: React.FC = () => {
       setStatus('FINISHED');
       setResult(res);
 
-      // XP Rewards: 1st=200, 2nd=150, 3rd+=100
+      // XP Rewards
       let baseXp = 100;
       if (userRank === 1) baseXp = 200;
       if (userRank === 2) baseXp = 150;
@@ -306,15 +305,21 @@ const Multiplayer: React.FC = () => {
   };
 
   const copyInviteLink = () => {
-      const baseUrl = window.location.href.split('#')[0];
-      // Include User Name and WPM in the link for Ghost Racing
+      // Ensure we get the full base URL including protocol and domain
+      const baseUrl = window.location.origin + window.location.pathname;
       const userName = encodeURIComponent(user?.username || 'Player');
       const wpm = user?.avgWpm || 40;
+      // Construct hash-router friendly URL
       const url = `${baseUrl}#/multiplayer?lobby=${lobbyId}&host=${userName}&wpm=${wpm}`;
       
-      navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+      }).catch(err => {
+          // Fallback for some mobile browsers
+          console.error('Failed to copy: ', err);
+          prompt("Copy this link:", url);
+      });
   };
 
   const handlePlayAgain = () => {
@@ -333,7 +338,6 @@ const Multiplayer: React.FC = () => {
           <div className="max-w-4xl mx-auto py-12 animate-fade-in">
               <h2 className="text-4xl font-black text-center text-slate-800 dark:text-white mb-12">SELECT GAME MODE</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  
                   {/* Ranked */}
                   <div 
                     onClick={handleStartRanked}
@@ -429,24 +433,26 @@ const Multiplayer: React.FC = () => {
 
   // HOST WAITING SCREEN
   if (lobbyMode === 'HOSTING' && status === 'IDLE') {
+      const inviteUrl = `${window.location.origin}${window.location.pathname}#/multiplayer?lobby=${lobbyId}&host=${encodeURIComponent(user?.username || 'Player')}&wpm=${user?.avgWpm || 40}`;
+      
       return (
-          <div className="max-w-2xl mx-auto py-12 animate-fade-in text-center">
+          <div className="max-w-2xl mx-auto py-12 animate-fade-in text-center px-4">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-neon-purple/10 rounded-full mb-6 relative">
                    <div className="absolute inset-0 border-4 border-neon-purple/30 rounded-full animate-ping opacity-50"></div>
                    <Users size={32} className="text-neon-purple" />
               </div>
-              <h2 className="text-4xl font-black text-slate-800 dark:text-white mb-2">LOBBY CREATED</h2>
+              <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white mb-2">LOBBY CREATED</h2>
               <p className="text-slate-500 dark:text-slate-400 mb-8">
                   Share this link. The match will start when <strong>YOU</strong> press start.
               </p>
 
               <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-xl flex items-center gap-2 mb-8 border border-slate-200 dark:border-white/10 max-w-lg mx-auto">
-                  <div className="flex-1 px-4 font-mono text-sm text-slate-600 dark:text-slate-300 truncate">
-                      {window.location.href.split('#')[0]}#/multiplayer?lobby={lobbyId}&host={encodeURIComponent(user?.username || 'Player')}&wpm={user?.avgWpm || 40}
+                  <div className="flex-1 px-4 font-mono text-xs md:text-sm text-slate-600 dark:text-slate-300 break-all text-left">
+                      {inviteUrl}
                   </div>
                   <button 
                     onClick={copyInviteLink}
-                    className="p-3 bg-white dark:bg-black/20 hover:bg-slate-50 dark:hover:bg-black/40 rounded-lg text-neon-purple font-bold transition-colors"
+                    className="p-3 bg-white dark:bg-black/20 hover:bg-slate-50 dark:hover:bg-black/40 rounded-lg text-neon-purple font-bold transition-colors shrink-0"
                   >
                       {copied ? <Check size={20} /> : <Copy size={20} />}
                   </button>
@@ -487,7 +493,7 @@ const Multiplayer: React.FC = () => {
   // SEARCHING SCREEN
   if (status === 'SEARCHING') {
       return (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-8 animate-fade-in relative">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-8 animate-fade-in relative px-4">
               {/* Spinning Ring */}
               <div className="relative">
                 <div className="absolute inset-0 bg-neon-cyan/20 blur-2xl rounded-full"></div>
@@ -510,12 +516,12 @@ const Multiplayer: React.FC = () => {
   // RACING & RESULTS
   return (
     <div className="max-w-5xl mx-auto animate-fade-in">
-        <div className="mb-8 flex justify-between items-end border-b border-slate-200 dark:border-white/5 pb-6">
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end border-b border-slate-200 dark:border-white/5 pb-6 gap-4">
             <div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
+                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
                     <Zap className="text-neon-cyan fill-neon-cyan" /> {isPrivateMatch ? 'PRIVATE // DUEL' : 'MULTIPLAYER // RANKED'}
                 </h2>
-                <div className="flex items-center gap-3 mt-2">
+                <div className="flex flex-wrap items-center gap-3 mt-2">
                     <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full border border-slate-200 dark:border-white/5">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                         <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider">
@@ -531,7 +537,7 @@ const Multiplayer: React.FC = () => {
                 </div>
             </div>
             {status === 'COUNTDOWN' && (
-                <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-800 to-slate-400 dark:from-white dark:to-slate-500 animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+                <div className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-800 to-slate-400 dark:from-white dark:to-slate-500 animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
                     {countdown > 0 ? countdown : 'GO'}
                 </div>
             )}

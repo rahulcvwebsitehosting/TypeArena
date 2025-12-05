@@ -7,8 +7,7 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged,
-  User as FirebaseUser 
+  onAuthStateChanged
 } from 'firebase/auth';
 
 interface LevelUpEvent {
@@ -100,18 +99,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storageKey = `typearena_data_${uid}`;
     const storedData = localStorage.getItem(storageKey);
     
+    let activeUser: User;
     if (storedData) {
-      setUser(JSON.parse(storedData));
+      activeUser = JSON.parse(storedData);
     } else {
-      const newUser: User = {
+      activeUser = {
         id: uid,
         email: email,
         username: username,
         isGuest: isGuest,
         ...INITIAL_STATS
       };
-      saveUserToStorage(newUser);
+      // Explicitly save the new user stats immediately
+      localStorage.setItem(`typearena_data_${uid}`, JSON.stringify(activeUser));
     }
+    
+    setUser(activeUser);
     
     if (!isGuest) {
         localStorage.setItem('typearena_current_user_id', uid);
@@ -126,10 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, pass: string) => {
-    // If Mock Mode OR if Firebase isn't configured, use local simulation
+    // Immediate handler for Mock Mode
     if (isMockMode) {
         await new Promise(resolve => setTimeout(resolve, 800)); // Fake network delay
         const mockId = 'mock_' + btoa(email).replace(/=/g, '');
+        // Simulate finding existing user or creating new for demo
         initializeUser(mockId, email, email.split('@')[0], false);
         return;
     }

@@ -1,10 +1,9 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Keyboard, Mail, Lock, User as UserIcon, AlertCircle, Loader2, ArrowRight, Zap, ShieldAlert, Play } from 'lucide-react';
 import { isMockMode } from '../services/firebase';
-
-const { useNavigate } = ReactRouterDOM;
 
 const Login: React.FC = () => {
   const { login, signup, guestLogin } = useAuth();
@@ -221,6 +220,7 @@ const Login: React.FC = () => {
             {/* Quick Demo Login Button */}
             {isMockMode && mode === 'LOGIN' && (
                 <button
+                    type="button"
                     onClick={handleDemoLogin}
                     disabled={isSubmitting}
                     className="w-full mt-3 py-3 bg-neon-green/10 border border-neon-green/30 hover:bg-neon-green/20 text-neon-green font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 text-sm group"

@@ -1,11 +1,10 @@
+
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Trophy, Zap, User, LogOut, Terminal, Users, Layers, Code, Sun, Moon } from 'lucide-react';
 import LevelUpModal from './LevelUpModal';
-
-const { Link, useLocation } = ReactRouterDOM;
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout, levelUpEvent, dismissLevelUp } = useAuth();
