@@ -67,6 +67,8 @@ const Login: React.FC = () => {
       console.error(err);
       let msg = "Failed to authenticate";
       if (err.code === 'auth/invalid-credential') msg = "Invalid email or password.";
+      if (err.code === 'auth/user-not-found') msg = "Account not found. Please register first.";
+      if (err.code === 'auth/email-already-in-use') msg = "Email already registered. Please login.";
       if (err.message) msg = err.message;
       setError(msg);
     } finally {
@@ -77,13 +79,19 @@ const Login: React.FC = () => {
   const handleDemoLogin = async () => {
       setIsSubmitting(true);
       await new Promise(resolve => setTimeout(resolve, 500));
-      setEmail('demo@typearena.com');
-      setPassword('demo123');
+      // Try to login with demo credentials
       try {
           await login('demo@typearena.com', 'demo123');
           navigate('/');
       } catch (e) {
-          setIsSubmitting(false);
+          // If demo user doesn't exist (because we cleared storage or strict mode), create it first
+          try {
+             await signup('demo@typearena.com', 'demo123', 'Demo_Player');
+             navigate('/');
+          } catch(err) {
+             setError("Demo login failed.");
+             setIsSubmitting(false);
+          }
       }
   };
 
@@ -134,13 +142,19 @@ const Login: React.FC = () => {
             {/* Mode Toggle */}
             <div className="flex bg-slate-100 dark:bg-black/40 rounded-xl p-1 mb-6 border border-slate-200 dark:border-white/5">
                 <button 
-                    onClick={() => setMode('LOGIN')}
+                    onClick={() => {
+                        setMode('LOGIN');
+                        setError('');
+                    }}
                     className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 active:scale-95 ${mode === 'LOGIN' ? 'bg-white dark:bg-white/10 text-slate-800 dark:text-white shadow-sm dark:shadow-inner ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                 >
                     LOGIN
                 </button>
                 <button 
-                    onClick={() => setMode('SIGNUP')}
+                    onClick={() => {
+                        setMode('SIGNUP');
+                        setError('');
+                    }}
                     className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 active:scale-95 ${mode === 'SIGNUP' ? 'bg-white dark:bg-white/10 text-slate-800 dark:text-white shadow-sm dark:shadow-inner ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                 >
                     REGISTER

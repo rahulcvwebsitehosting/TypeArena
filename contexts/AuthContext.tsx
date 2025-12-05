@@ -38,6 +38,9 @@ const INITIAL_STATS = {
   winStreak: 0
 };
 
+// Helper to generate consistent IDs for Mock Mode
+const generateMockId = (email: string) => 'mock_' + btoa(email.toLowerCase().trim()).replace(/=/g, '');
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +62,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const storedData = localStorage.getItem(storageKey);
             if (storedData) {
                 setUser(JSON.parse(storedData));
+            } else {
+                // Stale session ID, clear it
+                localStorage.removeItem('typearena_current_user_id');
             }
         } else if (isGuest) {
             // Guest session
@@ -132,9 +138,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Immediate handler for Mock Mode
     if (isMockMode) {
         await new Promise(resolve => setTimeout(resolve, 800)); // Fake network delay
-        const mockId = 'mock_' + btoa(email).replace(/=/g, '');
-        // Simulate finding existing user or creating new for demo
-        initializeUser(mockId, email, email.split('@')[0], false);
+        const mockId = generateMockId(email);
+        const storageKey = `typearena_data_${mockId}`;
+        
+        const existingData = localStorage.getItem(storageKey);
+
+        if (!existingData) {
+            // Simulate Error: User not found
+            const error: any = new Error("Account not found");
+            error.code = 'auth/user-not-found';
+            throw error;
+        }
+
+        const userData = JSON.parse(existingData);
+        // In a real app we would check password hash here. 
+        // For mock, existence of account is enough authentication.
+        
+        initializeUser(mockId, email, userData.username, false);
         return;
     }
 
@@ -152,6 +172,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.warn("Falling back to local session due to configuration error.");
             await new Promise(resolve => setTimeout(resolve, 800));
             const mockId = 'offline_' + btoa(email).replace(/=/g, '');
+            // In fallback mode, we default to allowing login to prevent lockout during errors,
+            // or we could enforce strict checks too. Let's allow access for robustness.
             initializeUser(mockId, email, email.split('@')[0], false);
             return;
         }
@@ -162,7 +184,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, pass: string, username: string) => {
     if (isMockMode) {
         await new Promise(resolve => setTimeout(resolve, 800));
-        const mockId = 'mock_' + btoa(email).replace(/=/g, '');
+        const mockId = generateMockId(email);
+        const storageKey = `typearena_data_${mockId}`;
+        
+        if (localStorage.getItem(storageKey)) {
+             const error: any = new Error("Email already in use");
+             error.code = 'auth/email-already-in-use';
+             throw error;
+        }
+
         initializeUser(mockId, email, username, false);
         return;
     }
