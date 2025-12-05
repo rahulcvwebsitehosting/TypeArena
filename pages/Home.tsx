@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Play, Users, Award, TrendingUp, Zap, ChevronRight, Flame, Globe, Lock } from 'lucide-react';
 import { getLevelProgress } from '../constants';
+
+const { useNavigate } = ReactRouterDOM;
 
 const Home: React.FC = () => {
   const { user } = useAuth();

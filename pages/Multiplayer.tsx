@@ -3,9 +3,11 @@ import { GameMode, GameResult, Difficulty, Opponent, Rank } from '../types';
 import { generatePracticeText } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, Users, Trophy, Home, Share2, Copy, Check, Zap, Medal, Flag, Flame, ArrowLeft, ArrowRight, RefreshCw, Lock, Globe } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Loader2, Users, Trophy, Home, Share2, Copy, Check, Zap, Medal, Flag, Flame, ArrowLeft, ArrowRight, RefreshCw, Lock, Globe, User } from 'lucide-react';
+import * as ReactRouterDOM from 'react-router-dom';
 import Confetti from '../components/Confetti';
+
+const { useNavigate, useSearchParams } = ReactRouterDOM;
 
 const BOT_NAMES = ['Speedster_99', 'CodeNinja', 'TypeMaster_X', 'KeyboardWarrior', 'FingerSlippage', 'Glitch_Runner', 'Neon_Viper', 'Cyber_Wraith'];
 const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -19,7 +21,7 @@ interface LeaderboardEntry {
   isUser: boolean;
 }
 
-type LobbyMode = 'SELECT' | 'HOSTING' | 'SEARCHING';
+type LobbyMode = 'SELECT' | 'HOSTING' | 'JOINED' | 'SEARCHING';
 
 const Multiplayer: React.FC = () => {
   const { addMatch, user } = useAuth();
@@ -40,6 +42,8 @@ const Multiplayer: React.FC = () => {
   
   // Lobby / Sharing State
   const [lobbyId, setLobbyId] = useState<string>('');
+  const [hostName, setHostName] = useState<string>('');
+  const [hostWpm, setHostWpm] = useState<number>(0);
   const [copied, setCopied] = useState(false);
   const [isPrivateMatch, setIsPrivateMatch] = useState(false);
 
@@ -55,14 +59,24 @@ const Multiplayer: React.FC = () => {
 
   useEffect(() => {
     const lobbyParam = searchParams.get('lobby');
+    const hostParam = searchParams.get('host');
+    const wpmParam = searchParams.get('wpm');
     const modeParam = searchParams.get('mode');
 
     if (lobbyParam) {
         // Joining a friend's lobby
         setLobbyId(lobbyParam);
-        setLobbyMode('HOSTING'); // Treat guest same as host UI-wise for now
         setIsPrivateMatch(true);
-        setLoadingText("Joined Party");
+        
+        if (hostParam) {
+            setLobbyMode('JOINED'); // Differentiate guest state
+            setHostName(hostParam);
+            setHostWpm(wpmParam ? parseInt(wpmParam) : 40);
+            setLoadingText(`Syncing with ${hostParam}...`);
+        } else {
+            setLobbyMode('HOSTING'); // Fallback if no host info
+            setLoadingText("Joined Party");
+        }
     } else if (modeParam === 'host') {
         // Creating a new lobby directly
         handleCreateLobby();
@@ -100,7 +114,13 @@ const Multiplayer: React.FC = () => {
     setPlacement(0);
     setStreakBonus(0);
     setLeaderboard([]);
-    setLoadingText(isPrivate ? "Starting Duel..." : "Finding opponents...");
+    
+    // Customize loading text based on mode
+    if (isPrivate) {
+        setLoadingText(hostName ? `Connecting to ${hostName}...` : "Starting Duel...");
+    } else {
+        setLoadingText("Finding opponents...");
+    }
     
     const difficulty = getDifficultyByRank(user?.rank);
 
@@ -145,19 +165,34 @@ const Multiplayer: React.FC = () => {
         minAcc = 98; maxAcc = 100;
     }
 
-    // In private match, just 1 balanced opponent (Rival)
-    // In ranked, 1-3 random opponents
+    // In private match, we spawn ONE opponent.
+    // If we are the Guest (hostName exists), we spawn the Host as the bot.
+    // If we are the Host (no hostName in state yet, or we created it), we spawn a Rival.
     const numBots = isPrivate ? 1 : Math.floor(Math.random() * 2) + 1; 
 
     for (let i = 0; i < numBots; i++) {
-        const botWpm = Math.floor(Math.random() * maxVar) + minWpm; 
-        const botAcc = Math.floor(Math.random() * (maxAcc - minAcc + 1)) + minAcc;
+        let botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+        let botWpm = Math.floor(Math.random() * maxVar) + minWpm;
+        let botAcc = Math.floor(Math.random() * (maxAcc - minAcc + 1)) + minAcc;
+
+        if (isPrivate) {
+            if (hostName) {
+                // We are Guest racing against Host
+                botName = hostName;
+                // Use host's average WPM + small variance to make it realistic
+                botWpm = hostWpm > 0 ? hostWpm + Math.floor(Math.random() * 10 - 5) : botWpm;
+                botAcc = 95; // High accuracy for ghost
+            } else {
+                // We are Host racing against "Guest" or "Rival"
+                botName = "Guest_Rival";
+            }
+        }
         
         newOpponents.push({
             id: `bot-${i}`,
-            name: isPrivate ? 'Rival' : BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)],
+            name: botName,
             progress: 0,
-            wpm: botWpm,
+            wpm: Math.max(10, botWpm), // Ensure min speed
             accuracy: botAcc,
             color: COLORS[i % COLORS.length],
             isFinished: false
@@ -270,7 +305,11 @@ const Multiplayer: React.FC = () => {
 
   const copyInviteLink = () => {
       const baseUrl = window.location.href.split('#')[0];
-      const url = `${baseUrl}#/multiplayer?lobby=${lobbyId}`;
+      // Include User Name and WPM in the link for Ghost Racing
+      const userName = encodeURIComponent(user?.username || 'Player');
+      const wpm = user?.avgWpm || 40;
+      const url = `${baseUrl}#/multiplayer?lobby=${lobbyId}&host=${userName}&wpm=${wpm}`;
+      
       navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -278,7 +317,8 @@ const Multiplayer: React.FC = () => {
 
   const handlePlayAgain = () => {
       if (isPrivateMatch) {
-          setLobbyMode('HOSTING');
+          // If guest, go back to joined state, if host go back to hosting
+          setLobbyMode(hostName ? 'JOINED' : 'HOSTING');
           setStatus('IDLE');
       } else {
           handleStartRanked();
@@ -328,7 +368,64 @@ const Multiplayer: React.FC = () => {
       );
   }
 
-  // LOBBY WAITING SCREEN
+  // GUEST JOINED SCREEN
+  if (lobbyMode === 'JOINED' && status === 'IDLE') {
+    return (
+        <div className="max-w-2xl mx-auto py-12 animate-fade-in text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-neon-green/10 rounded-full mb-6 relative">
+                 <div className="absolute inset-0 border-4 border-neon-green/30 rounded-full animate-ping opacity-50"></div>
+                 <Check size={32} className="text-neon-green" />
+            </div>
+            <h2 className="text-4xl font-black text-slate-800 dark:text-white mb-2">LOBBY JOINED</h2>
+            <p className="text-slate-500 dark:text-slate-400 mb-8 text-lg">
+                You are challenging <span className="text-neon-purple font-bold">{hostName}</span>!
+            </p>
+
+            <div className="glass-panel p-6 rounded-2xl max-w-sm mx-auto mb-8 border border-neon-purple/20">
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center">
+                        <User className="text-slate-500" />
+                    </div>
+                    <div className="text-left">
+                        <p className="font-bold text-slate-800 dark:text-white">{hostName}</p>
+                        <p className="text-xs text-slate-500 font-mono">HOST // AVG {hostWpm} WPM</p>
+                    </div>
+                </div>
+                <div className="h-px bg-slate-200 dark:bg-white/10 my-4"></div>
+                <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 rounded-full bg-neon-cyan/20 flex items-center justify-center border border-neon-cyan/30">
+                        <User className="text-neon-cyan" />
+                    </div>
+                    <div className="text-left">
+                        <p className="font-bold text-slate-800 dark:text-white">{user?.username || 'You'}</p>
+                        <p className="text-xs text-neon-cyan font-mono">CHALLENGER</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-4 max-w-xs mx-auto">
+                <button 
+                  onClick={startPrivateMatch}
+                  className="w-full py-4 bg-neon-green hover:bg-neon-green/90 text-white font-black rounded-xl shadow-lg shadow-neon-green/20 transition-all hover:-translate-y-1 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <Zap size={20} className="fill-white" /> START DUEL
+                </button>
+                <button 
+                  onClick={() => {
+                      setLobbyMode('SELECT');
+                      setIsPrivateMatch(false);
+                      setHostName('');
+                  }}
+                  className="w-full py-3 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold transition-colors"
+                >
+                    Leave Lobby
+                </button>
+            </div>
+        </div>
+    );
+}
+
+  // HOST WAITING SCREEN
   if (lobbyMode === 'HOSTING' && status === 'IDLE') {
       return (
           <div className="max-w-2xl mx-auto py-12 animate-fade-in text-center">
@@ -341,7 +438,7 @@ const Multiplayer: React.FC = () => {
 
               <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-xl flex items-center gap-2 mb-8 border border-slate-200 dark:border-white/10 max-w-lg mx-auto">
                   <div className="flex-1 px-4 font-mono text-sm text-slate-600 dark:text-slate-300 truncate">
-                      {window.location.href.split('#')[0]}#/multiplayer?lobby={lobbyId}
+                      {window.location.href.split('#')[0]}#/multiplayer?lobby={lobbyId}&host={encodeURIComponent(user?.username || 'Player')}&wpm={user?.avgWpm || 40}
                   </div>
                   <button 
                     onClick={copyInviteLink}
@@ -388,7 +485,7 @@ const Multiplayer: React.FC = () => {
               <div>
                   <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-2">{loadingText}</h2>
                   <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                     {isPrivateMatch ? 'Waiting for sync...' : <span>Calibrating opponents for <span className="text-neon-purple font-bold border-b border-neon-purple/50">{user?.rank}</span> league.</span>}
+                     {isPrivateMatch ? 'Preparing virtual environment...' : <span>Calibrating opponents for <span className="text-neon-purple font-bold border-b border-neon-purple/50">{user?.rank}</span> league.</span>}
                   </p>
               </div>
           </div>

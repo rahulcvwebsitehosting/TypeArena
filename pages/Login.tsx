@@ -1,9 +1,10 @@
-
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Keyboard, Mail, Lock, User as UserIcon, AlertCircle, Loader2, ArrowRight, Zap, ShieldAlert, Play } from 'lucide-react';
 import { isMockMode } from '../services/firebase';
+
+const { useNavigate } = ReactRouterDOM;
 
 const Login: React.FC = () => {
   const { login, signup, guestLogin } = useAuth();
