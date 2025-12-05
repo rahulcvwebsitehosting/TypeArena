@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GameMode, GameResult, Difficulty, Opponent, Rank } from '../types';
 import { generatePracticeText } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, Users, Trophy, Home, Share2, Copy, Check, Zap, Medal, Flag, Flame, ArrowLeft, ArrowRight, RefreshCw, Lock, Globe, User } from 'lucide-react';
+import { Loader2, Users, Trophy, Home, Share2, Copy, Check, Zap, Medal, Flag, Flame, ArrowLeft, ArrowRight, RefreshCw, Lock, Globe, User, Radio } from 'lucide-react';
 import * as ReactRouterDOM from 'react-router-dom';
 import Confetti from '../components/Confetti';
 
@@ -117,7 +118,7 @@ const Multiplayer: React.FC = () => {
     
     // Customize loading text based on mode
     if (isPrivate) {
-        setLoadingText(hostName ? `Connecting to ${hostName}...` : "Starting Duel...");
+        setLoadingText(hostName ? `Connecting to ${hostName}...` : "Initializing Duel...");
     } else {
         setLoadingText("Finding opponents...");
     }
@@ -166,8 +167,6 @@ const Multiplayer: React.FC = () => {
     }
 
     // In private match, we spawn ONE opponent.
-    // If we are the Guest (hostName exists), we spawn the Host as the bot.
-    // If we are the Host (no hostName in state yet, or we created it), we spawn a Rival.
     const numBots = isPrivate ? 1 : Math.floor(Math.random() * 2) + 1; 
 
     for (let i = 0; i < numBots; i++) {
@@ -176,15 +175,19 @@ const Multiplayer: React.FC = () => {
         let botAcc = Math.floor(Math.random() * (maxAcc - minAcc + 1)) + minAcc;
 
         if (isPrivate) {
+            // STRICT MODE: NO RANDOMNESS IN PRIVATE MATCHES
             if (hostName) {
-                // We are Guest racing against Host
+                // We are GUEST: Race against HOST (Ghost)
                 botName = hostName;
-                // Use host's average WPM + small variance to make it realistic
-                botWpm = hostWpm > 0 ? hostWpm + Math.floor(Math.random() * 10 - 5) : botWpm;
-                botAcc = 95; // High accuracy for ghost
+                // Use host's WPM exactly
+                botWpm = hostWpm > 0 ? hostWpm : 40;
+                botAcc = 96; // High accuracy for ghost
             } else {
-                // We are Host racing against "Guest" or "Rival"
-                botName = "Guest_Rival";
+                // We are HOST: Race against CHALLENGER (Balanced)
+                botName = "Challenger";
+                // Match User's Avg WPM exactly for a fair fight
+                botWpm = user?.avgWpm && user.avgWpm > 0 ? user.avgWpm : 40;
+                botAcc = 94;
             }
         }
         
@@ -279,7 +282,6 @@ const Multiplayer: React.FC = () => {
       if (userRank === 2) baseXp = 150;
 
       // Calculate streak bonus for display only
-      // Real bonus logic is in AuthContext
       if (isWin) {
           const nextStreak = (user?.winStreak || 0) + 1;
           if (nextStreak > 1) {
@@ -434,7 +436,9 @@ const Multiplayer: React.FC = () => {
                    <Users size={32} className="text-neon-purple" />
               </div>
               <h2 className="text-4xl font-black text-slate-800 dark:text-white mb-2">LOBBY CREATED</h2>
-              <p className="text-slate-500 dark:text-slate-400 mb-8">Share this link with your friend to start the race.</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-8">
+                  Share this link. The match will start when <strong>YOU</strong> press start.
+              </p>
 
               <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-xl flex items-center gap-2 mb-8 border border-slate-200 dark:border-white/10 max-w-lg mx-auto">
                   <div className="flex-1 px-4 font-mono text-sm text-slate-600 dark:text-slate-300 truncate">
@@ -448,13 +452,24 @@ const Multiplayer: React.FC = () => {
                   </button>
               </div>
 
+              {/* Waiting Animation */}
+              <div className="mb-8 flex flex-col items-center gap-3">
+                  <div className="flex gap-2">
+                      <span className="w-2 h-2 bg-neon-purple rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-neon-purple rounded-full animate-bounce delay-100"></span>
+                      <span className="w-2 h-2 bg-neon-purple rounded-full animate-bounce delay-200"></span>
+                  </div>
+                  <p className="text-xs font-mono text-slate-500 uppercase tracking-widest animate-pulse">Waiting for challenger...</p>
+              </div>
+
               <div className="flex flex-col gap-4 max-w-xs mx-auto">
                   <button 
                     onClick={startPrivateMatch}
                     className="w-full py-4 bg-neon-purple hover:bg-neon-purple/90 text-white font-black rounded-xl shadow-lg shadow-neon-purple/20 transition-all hover:-translate-y-1 hover:scale-[1.02] active:scale-95"
                   >
-                      START RACE
+                      START DUEL NOW
                   </button>
+                  <p className="text-[10px] text-slate-400">Click start when your friend has joined</p>
                   <button 
                     onClick={() => {
                         setLobbyMode('SELECT');
@@ -485,7 +500,7 @@ const Multiplayer: React.FC = () => {
               <div>
                   <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-2">{loadingText}</h2>
                   <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                     {isPrivateMatch ? 'Preparing virtual environment...' : <span>Calibrating opponents for <span className="text-neon-purple font-bold border-b border-neon-purple/50">{user?.rank}</span> league.</span>}
+                     {isPrivateMatch ? 'Syncing lobby settings...' : <span>Calibrating opponents for <span className="text-neon-purple font-bold border-b border-neon-purple/50">{user?.rank}</span> league.</span>}
                   </p>
               </div>
           </div>
