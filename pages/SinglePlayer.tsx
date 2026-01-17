@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Difficulty, GameMode, GameResult } from '../types';
 import { generatePracticeText, analyzePerformance } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, RefreshCw, Bot, Terminal, Zap } from 'lucide-react';
+import { Loader2, RefreshCw, Bot, Terminal } from 'lucide-react';
 
 const SinglePlayer: React.FC = () => {
   const { addMatch } = useAuth();
@@ -26,17 +27,13 @@ const SinglePlayer: React.FC = () => {
     setGameState('PLAYING');
   };
 
-  // Initial load
   useEffect(() => {
     loadGame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty]);
 
   const handleFinish = async (res: GameResult) => {
     setGameState('FINISHED');
     setResult(res);
-    
-    // Save stats
     addMatch({
         id: Date.now().toString(),
         date: new Date().toISOString(),
@@ -45,44 +42,31 @@ const SinglePlayer: React.FC = () => {
         mode: GameMode.SINGLE_PLAYER,
         difficulty: difficulty,
         errors: res.errors
-    }, 50); // 50 XP for practice
+    }, 50);
 
-    // Get AI Analysis
     setAnalyzing(true);
     const feedback = await analyzePerformance(res);
     setAnalysis(feedback);
     setAnalyzing(false);
   };
 
-  // Parse analysis string (Tip | Hype)
   const [tip, hype] = analysis && analysis.includes('|') ? analysis.split('|') : [analysis, null];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-            <div className="p-3 bg-neon-purple/20 rounded-xl">
-                <Terminal className="text-neon-purple" size={24} />
-            </div>
-            <h2 className="text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight">Practice Zone</h2>
-        </div>
-        
-        {/* Difficulty Selector */}
-        <div className="flex flex-wrap justify-center gap-2 bg-slate-100 dark:bg-black/40 p-1.5 rounded-xl border border-slate-200 dark:border-white/10">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <Terminal className="text-neon-purple" /> Practice Zone
+        </h2>
+        <div className="flex gap-2 p-1 bg-white dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10">
             {Object.values(Difficulty).map((d) => (
                 <button
                     key={d}
-                    onClick={() => {
-                        if (!loading && difficulty !== d) {
-                            setDifficulty(d);
-                        }
-                    }}
+                    onClick={() => !loading && difficulty !== d && setDifficulty(d)}
                     disabled={loading}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 ${
-                        difficulty === d 
-                        ? 'bg-neon-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' 
-                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/5'
-                    } disabled:opacity-50 cursor-pointer`}
+                    className={`px-3 py-1.5 rounded text-sm font-bold transition-all hover:scale-105 active:scale-95 ${
+                        difficulty === d ? 'bg-neon-purple text-white shadow-lg shadow-neon-purple/20' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                    }`}
                 >
                     {d}
                 </button>
@@ -91,9 +75,9 @@ const SinglePlayer: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="h-80 flex flex-col items-center justify-center glass-panel rounded-3xl border border-neon-purple/20">
-            <Loader2 className="animate-spin text-neon-purple mb-4" size={48} />
-            <p className="text-slate-500 dark:text-slate-400 font-mono animate-pulse">GENERATING_CHALLENGE_SEQUENCE...</p>
+        <div className="h-64 flex flex-col items-center justify-center bg-white dark:bg-abyss rounded-xl border border-slate-200 dark:border-white/5">
+            <Loader2 className="animate-spin text-neon-purple mb-2" size={32} />
+            <p className="text-slate-500 text-sm font-mono">Loading text...</p>
         </div>
       ) : (
         <TypingEngine 
@@ -103,93 +87,50 @@ const SinglePlayer: React.FC = () => {
         />
       )}
 
-      {/* Results Modal / Panel */}
       {gameState === 'FINISHED' && result && (
-          <div className="mt-8 p-8 glass-panel rounded-3xl border border-neon-purple/30 animate-fade-in relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-neon-purple/10 blur-[80px] rounded-full"></div>
+          <div className="p-6 bg-white dark:bg-abyss rounded-xl border border-slate-200 dark:border-white/5 shadow-lg animate-pop-in">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-6">Mission Complete</h3>
               
-              <h3 className="text-3xl font-black text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                  <span className="text-neon-green">MISSION COMPLETE</span>
-              </h3>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 relative z-10">
-                  <div className="bg-slate-50 dark:bg-black/40 p-5 rounded-2xl border border-slate-200 dark:border-white/5 text-center group hover:border-neon-cyan/50 transition-colors">
-                      <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Speed</p>
-                      <p className="text-3xl font-black text-slate-800 dark:text-white group-hover:text-neon-cyan transition-colors">{result.wpm} <span className="text-sm font-medium text-slate-500">WPM</span></p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-lg text-center transform hover:scale-105 transition-transform">
+                      <p className="text-slate-500 text-xs uppercase font-bold">Speed</p>
+                      <p className="text-2xl font-bold text-slate-800 dark:text-white">{result.wpm}</p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-black/40 p-5 rounded-2xl border border-slate-200 dark:border-white/5 text-center group hover:border-neon-green/50 transition-colors">
-                      <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Accuracy</p>
-                      <p className="text-3xl font-black text-slate-800 dark:text-white group-hover:text-neon-green transition-colors">{result.accuracy}%</p>
+                  <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-lg text-center transform hover:scale-105 transition-transform">
+                      <p className="text-slate-500 text-xs uppercase font-bold">Accuracy</p>
+                      <p className="text-2xl font-bold text-slate-800 dark:text-white">{result.accuracy}%</p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-black/40 p-5 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
-                      <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Time</p>
-                      <p className="text-3xl font-black text-slate-800 dark:text-white">{result.timeTaken.toFixed(1)}s</p>
+                  <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-lg text-center transform hover:scale-105 transition-transform">
+                      <p className="text-slate-500 text-xs uppercase font-bold">Time</p>
+                      <p className="text-2xl font-bold text-slate-800 dark:text-white">{result.timeTaken.toFixed(1)}s</p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-black/40 p-5 rounded-2xl border border-slate-200 dark:border-white/5 text-center group hover:border-yellow-500/50 transition-colors">
-                      <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">XP Earned</p>
-                      <p className="text-3xl font-black text-yellow-500 dark:text-yellow-400 group-hover:scale-110 transition-transform">+50</p>
+                  <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-lg text-center transform hover:scale-105 transition-transform">
+                      <p className="text-slate-500 text-xs uppercase font-bold">XP</p>
+                      <p className="text-2xl font-bold text-yellow-500">+50</p>
                   </div>
               </div>
 
-              {/* AI Coach - Cyberpunk HUD Style */}
-              <div className="relative group overflow-hidden rounded-2xl border border-neon-purple/30 bg-slate-100 dark:bg-black/40 p-6 transition-all hover:border-neon-purple/50 mb-8 shadow-lg">
-                  {/* Animated Background Mesh */}
-                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"></div>
-                  
-                  <div className="relative z-10 flex flex-col md:flex-row gap-6 items-center">
-                      {/* Hologram Avatar */}
-                      <div className="shrink-0 relative">
-                          <div className="h-16 w-16 rounded-xl border-2 border-neon-purple bg-slate-800 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.5)] transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
-                              <Bot size={32} className="text-white" />
-                          </div>
-                          <div className="absolute -top-2 -right-2 flex h-4 w-4">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-4 w-4 bg-neon-green"></span>
-                          </div>
-                      </div>
-
-                      {/* Data Stream */}
-                      <div className="flex-1 w-full space-y-3">
-                          <div className="flex items-center justify-between border-b border-slate-300 dark:border-white/10 pb-2">
-                              <span className="text-neon-purple font-mono text-xs tracking-[0.2em] font-bold flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-neon-purple rounded-sm"></span>
-                                  AI_COACH_UPLINK
-                              </span>
-                              {analyzing && <span className="text-xs font-mono text-slate-500 animate-pulse">DECRYPTING...</span>}
-                          </div>
-                          
-                          {analyzing ? (
-                              <div className="py-2 flex items-center justify-center text-slate-400 font-mono text-sm gap-2">
-                                  <Loader2 className="animate-spin text-neon-purple" size={16} /> 
-                                  <span>Processing Biometric Data...</span>
-                              </div>
-                          ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3 border-l-4 border-neon-cyan shadow-sm">
-                                      <span className="flex items-center gap-2 text-[10px] text-neon-cyan uppercase font-bold mb-1">
-                                          <Terminal size={10} /> Tactical Tip
-                                      </span>
-                                      <p className="text-slate-800 dark:text-white font-medium text-sm leading-tight">"{tip?.trim()}"</p>
-                                  </div>
-                                  {hype && (
-                                      <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3 border-l-4 border-neon-pink shadow-sm">
-                                          <span className="flex items-center gap-2 text-[10px] text-neon-pink uppercase font-bold mb-1">
-                                              <Zap size={10} /> Hype Rating
-                                          </span>
-                                          <p className="text-slate-800 dark:text-white font-black italic tracking-wide text-sm">"{hype?.trim()}"</p>
-                                      </div>
-                                  )}
-                              </div>
-                          )}
-                      </div>
+              {/* Minimal AI Coach */}
+              <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-lg border-l-4 border-neon-purple hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                       <Bot size={16} className="text-neon-purple"/>
+                       <span className="text-xs font-bold uppercase text-slate-500">Coach Feedback</span>
                   </div>
+                  {analyzing ? (
+                      <span className="text-slate-400 text-sm">Analyzing...</span>
+                  ) : (
+                      <div className="text-sm">
+                          <p className="text-slate-800 dark:text-white font-medium mb-1">{tip}</p>
+                          {hype && <p className="text-slate-500 italic">{hype}</p>}
+                      </div>
+                  )}
               </div>
 
               <button 
                 onClick={loadGame}
-                className="w-full py-4 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 border border-slate-200 dark:border-white/10 flex items-center justify-center gap-3 text-lg group"
+                className="w-full mt-6 py-3 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 font-bold rounded-lg transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
               >
-                  <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" /> REBOOT_SESSION
+                  <RefreshCw size={18} /> Play Again
               </button>
           </div>
       )}

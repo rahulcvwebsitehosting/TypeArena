@@ -1082,7 +1082,8 @@ const SplashCursor: React.FC<SplashCursorProps> = ({
         style={{
           width: '100vw',
           height: '100vh',
-          display: 'block'
+          display: 'block',
+          pointerEvents: 'none'
         }}
       />
     </div>

@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { 
   Github, Linkedin, Mail, MapPin, 
   ExternalLink, Award, GraduationCap, 
-  Briefcase, Cpu, Database, Layout as LayoutIcon, 
-  Zap, PenTool, Globe, Construction, Trophy
+  Briefcase, Cpu, Layout as LayoutIcon, 
+  Zap, Globe, Trophy
 } from 'lucide-react';
 
 const About: React.FC = () => {
@@ -65,7 +66,7 @@ const About: React.FC = () => {
       {/* Hero / Identity Card */}
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-neon-purple to-neon-cyan opacity-10 dark:opacity-20 blur-xl rounded-3xl group-hover:opacity-20 dark:group-hover:opacity-30 transition-opacity"></div>
-        <div className="relative glass-panel rounded-3xl p-8 md:p-12 border border-slate-200 dark:border-white/10 flex flex-col md:flex-row gap-8 items-center md:items-start">
+        <div className="relative glass-panel rounded-3xl p-8 md:p-12 border border-slate-200 dark:border-white/10 flex flex-col md:flex-row gap-8 items-center md:items-start transform transition-transform duration-500">
             
             {/* Avatar Hologram */}
             <div className="relative w-40 h-40 shrink-0">
@@ -73,7 +74,6 @@ const About: React.FC = () => {
                 <div className="absolute inset-2 border-2 border-neon-purple/50 rounded-full animate-spin-slow" style={{ animationDuration: '10s' }}></div>
                 <div className="w-full h-full rounded-full bg-gradient-to-b from-slate-100 to-slate-300 dark:from-slate-800 dark:to-black flex items-center justify-center overflow-hidden border-2 border-slate-200 dark:border-white/20">
                     <span className="text-6xl font-black text-slate-400 dark:text-white/10 select-none">RS</span>
-                    {/* Placeholder for real image if available */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-neon-purple/10 to-neon-cyan/10"></div>
                 </div>
                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-black/80 backdrop-blur text-neon-cyan text-[10px] font-bold py-1 px-3 rounded-full border border-neon-cyan/30 uppercase tracking-widest whitespace-nowrap">
@@ -102,20 +102,20 @@ const About: React.FC = () => {
                 </p>
 
                 <div className="flex flex-wrap justify-center md:justify-start gap-3 pt-2">
-                    <a href="mailto:rahulcvfiitjee@gmail.com" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-purple transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 group">
+                    <a href="mailto:rahulcvfiitjee@gmail.com" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-purple transition-all hover:-translate-y-1 hover:scale-110 active:scale-95 group">
                         <Mail className="text-slate-500 dark:text-slate-400 group-hover:text-neon-purple" size={20} />
                     </a>
-                    <a href="https://linkedin.com/in/rahulshyamcivil" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-cyan transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 group">
+                    <a href="https://linkedin.com/in/rahulshyamcivil" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-neon-cyan transition-all hover:-translate-y-1 hover:scale-110 active:scale-95 group">
                         <Linkedin className="text-slate-500 dark:text-slate-400 group-hover:text-neon-cyan" size={20} />
                     </a>
-                    <a href="https://github.com/rahulcvwebsitehosting" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-800 dark:hover:border-white transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 group">
+                    <a href="https://github.com/rahulcvwebsitehosting" target="_blank" rel="noreferrer" className="p-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-800 dark:hover:border-white transition-all hover:-translate-y-1 hover:scale-110 active:scale-95 group">
                         <Github className="text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white" size={20} />
                     </a>
                     <a 
                         href="https://drive.google.com/file/d/11BXxzDZneovwL4tFqS0xxujDtX87W1JI/view?usp=sharing" 
                         target="_blank" 
                         rel="noreferrer"
-                        className="px-6 py-3 bg-neon-purple hover:bg-purple-600 text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 shadow-lg shadow-neon-purple/20 flex items-center gap-2"
+                        className="px-6 py-3 bg-neon-purple hover:bg-purple-600 text-white font-bold rounded-xl transition-all hover:-translate-y-1 hover:scale-105 active:scale-95 shadow-lg shadow-neon-purple/20 flex items-center gap-2"
                     >
                         <Zap size={18} /> Download CV
                     </a>
@@ -134,7 +134,7 @@ const About: React.FC = () => {
 
               <div className="relative border-l-2 border-slate-200 dark:border-white/10 ml-3 space-y-8 pl-8 py-2">
                   {/* Item 1 */}
-                  <div className="relative group">
+                  <div className="relative group cursor-default hover:translate-x-1 transition-transform">
                       <div className="absolute -left-[41px] top-1 w-5 h-5 bg-white dark:bg-abyss border-2 border-neon-cyan rounded-full group-hover:scale-125 transition-transform shadow-[0_0_10px_rgba(6,182,212,0.5)]"></div>
                       <span className="text-xs font-mono text-neon-cyan mb-1 block">2024 - 2028 (Present)</span>
                       <h4 className="text-xl font-bold text-slate-800 dark:text-white">B.E. Civil Engineering</h4>
@@ -145,7 +145,7 @@ const About: React.FC = () => {
                   </div>
 
                   {/* Item 2 */}
-                  <div className="relative group">
+                  <div className="relative group cursor-default hover:translate-x-1 transition-transform">
                       <div className="absolute -left-[41px] top-1 w-5 h-5 bg-white dark:bg-abyss border-2 border-neon-purple rounded-full group-hover:scale-125 transition-transform"></div>
                       <span className="text-xs font-mono text-neon-purple mb-1 block">Aug 2025 - Present</span>
                       <h4 className="text-xl font-bold text-slate-800 dark:text-white">"Ground Improvement" Certification</h4>
@@ -153,7 +153,7 @@ const About: React.FC = () => {
                   </div>
 
                    {/* Item 3 */}
-                   <div className="relative group">
+                   <div className="relative group cursor-default hover:translate-x-1 transition-transform">
                       <div className="absolute -left-[41px] top-1 w-5 h-5 bg-white dark:bg-abyss border-2 border-slate-400 dark:border-slate-600 rounded-full group-hover:scale-125 transition-transform"></div>
                       <span className="text-xs font-mono text-slate-500 mb-1 block">2024</span>
                       <h4 className="text-xl font-bold text-slate-800 dark:text-white">Higher Secondary (Pure Science)</h4>
@@ -169,7 +169,7 @@ const About: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap gap-4">
                     {achievements.map((ach, i) => (
-                        <div key={i} className="flex items-center gap-3 px-4 py-3 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-yellow-400/50 transition-colors">
+                        <div key={i} className="flex items-center gap-3 px-4 py-3 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-yellow-400/50 transition-all hover:scale-105 cursor-default">
                             <Trophy size={16} className="text-yellow-500" />
                             <span className="text-slate-700 dark:text-slate-200 font-medium text-sm">{ach}</span>
                         </div>
@@ -180,7 +180,7 @@ const About: React.FC = () => {
 
           {/* Right Col: Skills */}
           <div className="lg:col-span-5">
-              <div className="glass-panel p-8 rounded-3xl border border-slate-200 dark:border-white/10 h-full">
+              <div className="glass-panel p-8 rounded-3xl border border-slate-200 dark:border-white/10 h-full hover:shadow-xl transition-shadow duration-300">
                   <div className="flex items-center gap-3 mb-8">
                       <Cpu className="text-neon-pink" size={24} />
                       <h3 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Skill Matrix</h3>
@@ -188,14 +188,14 @@ const About: React.FC = () => {
 
                   <div className="space-y-6">
                       {skills.map((skill) => (
-                          <div key={skill.name}>
+                          <div key={skill.name} className="group cursor-default">
                               <div className="flex justify-between items-end mb-2">
-                                  <span className="font-bold text-slate-700 dark:text-slate-200">{skill.name}</span>
+                                  <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-neon-purple transition-colors">{skill.name}</span>
                                   <span className="text-xs font-mono text-slate-500">{skill.level}%</span>
                               </div>
                               <div className="h-2 bg-slate-200 dark:bg-black/40 rounded-full overflow-hidden">
                                   <div 
-                                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                                    className="h-full rounded-full transition-all duration-1000 ease-out group-hover:brightness-125"
                                     style={{ 
                                         width: `${skill.level}%`, 
                                         backgroundColor: skill.color,
@@ -211,7 +211,7 @@ const About: React.FC = () => {
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Interests</h4>
                       <div className="flex flex-wrap gap-2">
                           {['Infrastructure', 'Web Dev', 'Robotics', 'Concrete Tech', 'Blogging'].map(tag => (
-                              <span key={tag} className="px-3 py-1 bg-slate-100 dark:bg-black/40 rounded-full text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/20 transition-colors">
+                              <span key={tag} className="px-3 py-1 bg-slate-100 dark:bg-black/40 rounded-full text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/20 transition-all hover:scale-110 cursor-default">
                                   #{tag}
                               </span>
                           ))}
@@ -235,14 +235,14 @@ const About: React.FC = () => {
                     href={p.link} 
                     target="_blank" 
                     rel="noreferrer"
-                    className="group relative overflow-hidden bg-white/80 dark:bg-abyss/60 backdrop-blur rounded-2xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] active:scale-95"
+                    className="group relative overflow-hidden bg-white/80 dark:bg-abyss/60 backdrop-blur rounded-2xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] active:scale-95 shadow-lg hover:shadow-2xl"
                 >
                     <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${p.color}`}></div>
                     <div className={`absolute -right-12 -top-12 w-32 h-32 bg-gradient-to-br ${p.color} opacity-10 blur-3xl rounded-full group-hover:opacity-20 transition-opacity`}></div>
                     
                     <div className="p-6 md:p-8 relative z-10">
                         <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-slate-100 dark:bg-white/5 rounded-xl">
+                            <div className="p-3 bg-slate-100 dark:bg-white/5 rounded-xl group-hover:scale-110 transition-transform">
                                 {p.type === 'IoT Hardware' ? <Cpu size={20} className="text-slate-500 dark:text-slate-300"/> : 
                                  p.type === 'AI Tool' ? <Zap size={20} className="text-slate-500 dark:text-slate-300"/> :
                                  p.type === 'Maps Integration' ? <MapPin size={20} className="text-slate-500 dark:text-slate-300"/> :
@@ -255,7 +255,7 @@ const About: React.FC = () => {
                         </div>
 
                         <h4 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 group-hover:text-neon-cyan transition-colors flex items-center gap-2">
-                            {p.title} <ExternalLink size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                            {p.title} <ExternalLink size={16} className="opacity-0 group-hover:opacity-100 transition-opacity -translate-y-1 group-hover:translate-y-0" />
                         </h4>
                         <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 leading-relaxed">
                             {p.desc}

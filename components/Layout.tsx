@@ -16,23 +16,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
       <Link 
         to={to} 
-        className={`group relative flex items-center gap-3 p-3 rounded-xl mb-2 transition-all duration-300 active:scale-95 overflow-hidden ${
+        className={`flex items-center gap-3 p-3 rounded-lg mb-2 transition-colors ${
           active 
-            ? 'bg-gradient-to-r from-neon-purple/20 to-neon-cyan/10 text-slate-800 dark:text-white border border-neon-purple/30 shadow-[0_0_15px_rgba(139,92,246,0.15)]' 
-            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+            ? 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-bold' 
+            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
         }`}
       >
-        {active && (
-            <div className="absolute left-0 top-0 h-full w-1 bg-neon-purple shadow-[0_0_10px_#8b5cf6]"></div>
-        )}
-        <Icon size={20} className={`transition-colors ${active ? 'text-neon-cyan' : 'text-slate-400 dark:text-slate-500 group-hover:text-neon-purple'}`} />
-        <span className="font-medium tracking-wide">{label}</span>
+        <Icon size={20} className={active ? 'text-neon-purple' : ''} />
+        <span>{label}</span>
       </Link>
     );
   };
 
   return (
-    <div className="min-h-screen flex text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
+    <div className="min-h-screen flex text-slate-800 dark:text-slate-100 font-sans">
       {/* Level Up Overlay */}
       {levelUpEvent && (
           <LevelUpModal 
@@ -43,22 +40,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       )}
 
       {/* Sidebar - Desktop */}
-      <aside className="w-72 bg-white/80 dark:bg-abyss/80 backdrop-blur-xl border-r border-slate-200 dark:border-white/5 flex-shrink-0 flex flex-col hidden md:flex sticky top-0 h-screen transition-colors duration-300">
-        <div className="p-8 pb-4">
+      <aside className="w-64 bg-white dark:bg-abyss border-r border-slate-200 dark:border-white/5 flex-shrink-0 flex flex-col hidden md:flex sticky top-0 h-screen">
+        <div className="p-6">
           <div className="flex items-center gap-2 mb-8">
-            <div className="p-2 bg-gradient-to-br from-neon-purple to-neon-pink rounded-lg shadow-lg shadow-neon-purple/20">
-                <Layers size={24} className="text-white" />
+            <div className="p-2 bg-neon-purple rounded-lg">
+                <Layers size={20} className="text-white" />
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-700 to-slate-400 dark:from-white dark:to-slate-400">TYPE</span>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan">ARENA</span>
+            <h1 className="text-xl font-bold tracking-tight">
+              TYPE<span className="text-neon-cyan">ARENA</span>
             </h1>
           </div>
           
-          <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 px-3">Menu</div>
           <nav className="space-y-1">
             <NavItem to="/" icon={Trophy} label="Dashboard" />
-            <NavItem to="/singleplayer" icon={Terminal} label="Practice Mode" />
+            <NavItem to="/singleplayer" icon={Terminal} label="Practice" />
             <NavItem to="/multiplayer" icon={Users} label="Multiplayer" />
             <NavItem to="/profile" icon={User} label="Profile" />
             <NavItem to="/about" icon={Code} label="Creator" />
@@ -69,29 +64,29 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {/* Theme Toggle */}
           <button 
             onClick={toggleTheme}
-            className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95"
+            className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
           >
-            <span className="text-sm font-bold flex items-center gap-2">
+            <span className="text-sm font-medium flex items-center gap-2">
                 {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-                {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                {theme === 'dark' ? 'Dark' : 'Light'}
             </span>
-            <div className={`w-10 h-5 rounded-full relative transition-colors ${theme === 'dark' ? 'bg-neon-purple' : 'bg-slate-300'}`}>
-                <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform duration-300 ${theme === 'dark' ? 'left-6' : 'left-1'}`}></div>
+            <div className={`w-8 h-4 rounded-full relative transition-colors ${theme === 'dark' ? 'bg-neon-purple' : 'bg-slate-300'}`}>
+                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`}></div>
             </div>
           </button>
 
           {user ? (
-            <div className="glass-panel p-4 rounded-xl flex items-center justify-between group hover:border-neon-purple/30 transition-colors">
+            <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-800 dark:text-white group-hover:text-neon-cyan transition-colors">{user.username}</span>
-                <span className="text-xs text-neon-purple font-mono">{user.rank}</span>
+                <span className="text-sm font-bold truncate max-w-[120px]">{user.username}</span>
+                <span className="text-xs text-slate-500">{user.rank}</span>
               </div>
-              <button onClick={logout} className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-neon-pink transition active:scale-95">
+              <button onClick={logout} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-slate-400 hover:text-red-500 transition-colors">
                 <LogOut size={18} />
               </button>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center justify-center w-full py-3 bg-gradient-to-r from-neon-purple to-neon-pink hover:opacity-90 rounded-xl text-sm font-bold transition active:scale-95 shadow-lg shadow-neon-purple/20 text-white">
+            <Link to="/login" className="block w-full py-2 text-center bg-neon-purple hover:bg-purple-600 rounded-lg text-sm font-bold text-white transition-colors">
               Login
             </Link>
           )}
@@ -99,27 +94,23 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </aside>
 
       {/* Mobile Nav Header */}
-      <div className="md:hidden fixed top-0 w-full bg-white/90 dark:bg-abyss/90 backdrop-blur-md z-50 p-4 flex justify-between items-center border-b border-slate-200 dark:border-white/10">
+      <div className="md:hidden fixed top-0 w-full bg-white dark:bg-abyss z-50 p-4 flex justify-between items-center border-b border-slate-200 dark:border-white/10">
          <div className="flex items-center gap-2">
             <Layers size={20} className="text-neon-purple" />
-            <h1 className="text-lg font-bold text-slate-800 dark:text-white">TYPE<span className="text-neon-cyan">ARENA</span></h1>
+            <h1 className="text-lg font-bold">TYPE<span className="text-neon-cyan">ARENA</span></h1>
          </div>
          <div className="flex gap-4 items-center">
-            <button onClick={toggleTheme} className="p-2 text-slate-600 dark:text-slate-300 active:scale-95">
+            <button onClick={toggleTheme} className="p-2 text-slate-600 dark:text-slate-300">
                 {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <Link to="/singleplayer" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg text-neon-purple active:scale-95"><Terminal size={20}/></Link>
-            <Link to="/multiplayer" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg text-neon-cyan active:scale-95"><Users size={20}/></Link>
-            <Link to="/about" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg text-slate-600 dark:text-white active:scale-95"><Code size={20}/></Link>
+            <Link to="/singleplayer" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg text-neon-purple"><Terminal size={20}/></Link>
+            <Link to="/multiplayer" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg text-neon-cyan"><Users size={20}/></Link>
          </div>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-12 overflow-y-auto mt-16 md:mt-0 relative">
-        {/* Glow Orb in background (Dark mode only or subtle in light) */}
-        <div className="absolute top-0 left-0 w-full h-96 bg-neon-purple/5 blur-[120px] rounded-full pointer-events-none opacity-50 dark:opacity-100"></div>
-        
-        <div className="max-w-6xl mx-auto relative z-10">
+      <main className="flex-1 p-4 md:p-12 overflow-y-auto mt-16 md:mt-0">
+        <div className="max-w-6xl mx-auto">
           {children}
         </div>
       </main>
