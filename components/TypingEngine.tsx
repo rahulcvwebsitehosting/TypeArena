@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameResult, Opponent } from '../types';
-import { Clock } from 'lucide-react';
+import { Clock, Activity, Target, Zap } from 'lucide-react';
 
 interface TypingEngineProps {
   text: string;
@@ -159,29 +159,68 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
   const formatSeconds = (ms: number) => Math.floor(ms / 1000).toString().padStart(2, '0');
   const formatMillis = (ms: number) => Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
 
-  return (
-    <div className="w-full max-w-4xl mx-auto relative">
-      {startTime && isGameActive && (
-        <div className="flex justify-center mb-6">
-           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded font-mono text-xl">
-                <Clock size={20} className="text-neon-cyan" />
-                <span>{formatSeconds(currentTime)}.{formatMillis(currentTime)}</span>
-           </div>
-        </div>
-      )}
+  const progress = (input.length / text.length) * 100;
 
-      <div className="flex justify-between items-center mb-6 p-4 bg-white dark:bg-abyss rounded-lg border border-slate-200 dark:border-white/5">
-        <div className="text-center w-1/3 border-r border-slate-100 dark:border-white/5">
-            <p className="text-slate-500 text-xs uppercase font-bold">WPM</p>
-            <p className="text-3xl font-bold text-slate-800 dark:text-white">{wpm}</p>
+  return (
+    <div className="w-full max-w-4xl mx-auto relative flex flex-col items-center">
+      {/* Visual Gaming Timer HUD */}
+      <div className={`transition-all duration-500 transform ${startTime && isGameActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-90'} mb-8 w-full`}>
+          <div className="flex flex-col items-center">
+              <div className="relative bg-slate-900/90 dark:bg-black/80 backdrop-blur-md px-10 py-3 rounded-2xl border-b-4 border-neon-cyan shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-6 group overflow-hidden">
+                  {/* Subtle Background Animation */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
+                  
+                  <div className="flex items-center gap-3">
+                      <div className="p-2 bg-neon-cyan/20 rounded-lg animate-pulse">
+                          <Clock size={24} className="text-neon-cyan" />
+                      </div>
+                      <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Time Elapsed</span>
+                          <span className="font-mono text-3xl font-black text-white tabular-nums drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+                            {formatSeconds(currentTime)}<span className="text-neon-cyan animate-pulse">.</span>{formatMillis(currentTime)}
+                          </span>
+                      </div>
+                  </div>
+
+                  <div className="h-10 w-px bg-slate-700"></div>
+
+                  <div className="flex items-center gap-3">
+                       <div className="p-2 bg-neon-purple/20 rounded-lg">
+                          <Activity size={24} className="text-neon-purple" />
+                      </div>
+                      <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Live Speed</span>
+                          <span className="font-mono text-3xl font-black text-white tabular-nums">{wpm} <span className="text-xs text-neon-purple font-mono uppercase">WPM</span></span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Progress Bar under Timer */}
+              <div className="w-full max-w-xs mt-4 h-1 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-neon-purple to-neon-cyan shadow-[0_0_10px_rgba(6,182,212,0.5)] transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+              </div>
+          </div>
+      </div>
+
+      {/* Main Stats Card */}
+      <div className={`w-full grid grid-cols-3 gap-1 mb-6 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5 shadow-inner transition-all ${startTime && isGameActive ? 'opacity-50 scale-95 blur-[0.5px]' : 'opacity-100'}`}>
+        <div className="bg-white dark:bg-abyss p-4 rounded-xl text-center flex flex-col items-center justify-center">
+            <Zap size={14} className="text-neon-purple mb-1 opacity-50" />
+            <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest">WPM</p>
+            <p className="text-3xl font-black text-slate-800 dark:text-white tabular-nums">{wpm}</p>
         </div>
-        <div className="text-center w-1/3 border-r border-slate-100 dark:border-white/5">
-            <p className="text-slate-500 text-xs uppercase font-bold">ACC</p>
-            <p className={`text-3xl font-bold ${accuracy >= 95 ? 'text-green-500' : 'text-slate-800 dark:text-white'}`}>{accuracy}%</p>
+        <div className="bg-white dark:bg-abyss p-4 rounded-xl text-center flex flex-col items-center justify-center">
+            <Target size={14} className="text-neon-cyan mb-1 opacity-50" />
+            <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest">Accuracy</p>
+            <p className={`text-3xl font-black tabular-nums ${accuracy >= 95 ? 'text-neon-green' : 'text-slate-800 dark:text-white'}`}>{accuracy}%</p>
         </div>
-        <div className="text-center w-1/3">
-            <p className="text-slate-500 text-xs uppercase font-bold">ERR</p>
-            <p className="text-3xl font-bold text-red-500">{errors}</p>
+        <div className="bg-white dark:bg-abyss p-4 rounded-xl text-center flex flex-col items-center justify-center">
+            <Activity size={14} className="text-red-500 mb-1 opacity-50" />
+            <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest">Errors</p>
+            <p className="text-3xl font-black text-red-500 tabular-nums">{errors}</p>
         </div>
       </div>
 
@@ -190,7 +229,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
       <div 
         ref={containerRef}
         onClick={handleContainerClick}
-        className="relative min-h-[200px] p-8 bg-white dark:bg-abyss rounded-xl border border-slate-200 dark:border-white/10 cursor-text shadow-sm"
+        className="relative min-h-[220px] p-8 md:p-12 bg-white dark:bg-abyss rounded-3xl border border-slate-200 dark:border-white/10 cursor-text shadow-xl ring-4 ring-transparent focus-within:ring-neon-purple/10 transition-all w-full"
       >
         <input 
             ref={inputRef}
@@ -205,8 +244,13 @@ const TypingEngine: React.FC<TypingEngineProps> = ({ text, isGameActive, onGameF
             {renderText()}
         </div>
         {!isGameActive && !startTime && text.length > 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-black/80 rounded-xl z-10">
-                <p className="text-lg font-bold text-slate-500">Tap here to start</p>
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-black/90 rounded-3xl z-10 animate-fade-in backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-neon-purple/20 flex items-center justify-center animate-bounce">
+                        <Zap className="text-neon-purple" size={32} />
+                    </div>
+                    <p className="text-xl font-black text-slate-800 dark:text-white tracking-widest uppercase">Tap to Begin Mission</p>
+                </div>
             </div>
         )}
       </div>

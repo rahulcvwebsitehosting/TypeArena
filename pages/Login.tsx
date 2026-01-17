@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Keyboard, Mail, Lock, User as UserIcon, AlertCircle, Loader2, ArrowRight, Zap, Play } from 'lucide-react';
-import { isMockMode } from '../services/firebase';
+import { Keyboard, Mail, Lock, User as UserIcon, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 const Login: React.FC = () => {
   const { login, signup, guestLogin } = useAuth();
@@ -16,6 +15,35 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const getErrorMessage = (err: any): string => {
+    if (!err) return "An unexpected error occurred.";
+    if (typeof err === 'string') return err;
+    
+    // Try common error structures from Supabase/PostgREST
+    const message = 
+      err.message || 
+      err.error_description || 
+      (err.error && typeof err.error === 'string' ? err.error : err.error?.message) || 
+      err.details || 
+      err.code;
+
+    if (typeof message === 'string' && message !== "[object Object]" && message.trim() !== "") {
+      // Humanize some common codes
+      if (message === 'invalid_credentials') return "Invalid email or password.";
+      if (message === 'Email address is invalid') return "Please enter a valid email address.";
+      if (message.includes('User already registered')) return "This email is already in use.";
+      return message;
+    }
+
+    // If it's an object we couldn't parse properly, try to see if it has a string value
+    const str = String(err);
+    if (str !== "[object Object]" && str.trim() !== "") {
+      return str;
+    }
+
+    return "Authentication failed. Please verify your connection and try again.";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -25,38 +53,19 @@ const Login: React.FC = () => {
       if (mode === 'LOGIN') {
         await login(email, password);
       } else {
-        if (username.length < 3) throw new Error("Username must be at least 3 characters");
-        await signup(email, password, username);
+        if (username.trim().length < 3) {
+          throw new Error("Username must be at least 3 characters long.");
+        }
+        await signup(email, password, username.trim());
       }
       navigate('/');
     } catch (err: any) {
-      console.error(err);
-      let msg = "Failed to authenticate";
-      if (err.code === 'auth/invalid-credential') msg = "Invalid email or password.";
-      if (err.code === 'auth/user-not-found') msg = "Account not found. Please register first.";
-      if (err.code === 'auth/email-already-in-use') msg = "Email already registered. Please login.";
-      if (err.message) msg = err.message;
+      console.error('Auth Error Details:', err);
+      const msg = getErrorMessage(err);
       setError(msg);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleDemoLogin = async () => {
-      setIsSubmitting(true);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      try {
-          await login('demo@typearena.com', 'demo123');
-          navigate('/');
-      } catch (e) {
-          try {
-             await signup('demo@typearena.com', 'demo123', 'Demo_Player');
-             navigate('/');
-          } catch(err) {
-             setError("Demo login failed.");
-             setIsSubmitting(false);
-          }
-      }
   };
 
   return (
@@ -69,8 +78,8 @@ const Login: React.FC = () => {
                 <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
                     TYPE<span className="text-neon-cyan">ARENA</span>
                 </h1>
-                <p className="text-slate-500 dark:text-slate-400 font-mono text-xs mt-2">
-                    SYSTEM ACCESS // {isMockMode ? 'OFFLINE' : 'ONLINE'}
+                <p className="text-slate-500 dark:text-slate-400 font-mono text-xs mt-2 uppercase tracking-widest">
+                    CLOUD SYNC // SECURE ACCESS
                 </p>
             </div>
 
@@ -93,7 +102,7 @@ const Login: React.FC = () => {
             {error && (
                 <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2 text-red-500 text-sm">
                     <AlertCircle size={16} className="mt-0.5" />
-                    <span>{error}</span>
+                    <span className="break-words">{error}</span>
                 </div>
             )}
 
@@ -138,24 +147,12 @@ const Login: React.FC = () => {
                 <button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="w-full py-3 bg-neon-purple hover:bg-purple-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-neon-purple hover:bg-purple-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                     {isSubmitting && <Loader2 className="animate-spin" size={18} />}
                     <span>{mode === 'LOGIN' ? 'ENTER' : 'JOIN'}</span>
                 </button>
             </form>
-            
-            {/* Quick Demo Login Button */}
-            {isMockMode && mode === 'LOGIN' && (
-                <button
-                    type="button"
-                    onClick={handleDemoLogin}
-                    disabled={isSubmitting}
-                    className="w-full mt-3 py-2 bg-neon-green/10 border border-neon-green/30 hover:bg-neon-green/20 text-neon-green font-bold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                    <Play size={14} /> Quick Demo Login
-                </button>
-            )}
 
             <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">

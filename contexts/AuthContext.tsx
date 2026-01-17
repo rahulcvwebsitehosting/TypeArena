@@ -1,14 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Rank, MatchStats, GameMode } from '../types';
-import { getRankFromXP, RANKS_ORDERED } from '../constants';
-import { auth, isMockMode } from '../services/firebase';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged
-} from 'firebase/auth';
+import { getRankFromXP } from '../constants';
+import { supabase, DbUser } from '../services/supabase';
+import { saveMatchHistory, getMatchHistory } from '../services/matchService';
 
 interface LevelUpEvent {
   oldRank: Rank;
@@ -24,215 +19,137 @@ interface AuthContextType {
   signup: (email: string, pass: string, username: string) => Promise<void>;
   guestLogin: () => void;
   logout: () => Promise<void>;
-  addMatch: (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => void;
+  addMatch: (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const INITIAL_STATS = {
-  xp: 0,
-  rank: Rank.BRONZE_I,
-  matches: [],
-  bestWpm: 0,
-  avgWpm: 0,
-  winStreak: 0
-};
-
-// Helper to generate consistent IDs for Mock Mode
-const generateMockId = (email: string) => 'mock_' + btoa(email.toLowerCase().trim()).replace(/=/g, '');
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [levelUpEvent, setLevelUpEvent] = useState<LevelUpEvent | null>(null);
 
-  // Sync with Firebase Auth State
   useEffect(() => {
-    if (isMockMode) {
-        // MOCK MODE: Skip Firebase Listener entirely
-        console.log("Running in Auth Simulation Mode (Offline)");
-        
-        // Check for persisted mock session
-        const storedUid = localStorage.getItem('typearena_current_user_id');
+    // Initial session check
+    supabase.auth.getSession().then(({ data }) => {
+      const session = data?.session;
+      if (session?.user) {
+        loadUserProfile(session.user.id);
+      } else {
         const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
-
-        if (storedUid) {
-            // Retrieve full user object
-            const storageKey = `typearena_data_${storedUid}`;
-            const storedData = localStorage.getItem(storageKey);
-            if (storedData) {
-                setUser(JSON.parse(storedData));
-            } else {
-                // Stale session ID, clear it
-                localStorage.removeItem('typearena_current_user_id');
-            }
-        } else if (isGuest) {
-            // Guest session
+        if (isGuest) {
             guestLogin();
+        } else {
+            setLoading(false);
         }
-        
-        setLoading(false);
-        return;
-    }
+      }
+    });
 
-    // REAL MODE: Use Firebase Listener
-    const unsubscribe = onAuthStateChanged(
-        auth, 
-        (firebaseUser) => {
-            if (firebaseUser) {
-                initializeUser(
-                    firebaseUser.uid, 
-                    firebaseUser.email || '', 
-                    firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
-                    false
-                );
-            } else {
-                const stored = localStorage.getItem('typearena_current_user_id');
-                if (!stored) setUser(null);
-            }
-            setLoading(false);
-        },
-        (error) => {
-            console.warn("Firebase Auth Init Error:", error);
-            setLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await loadUserProfile(session.user.id);
+      } else {
+        if (localStorage.getItem('typearena_is_guest') !== 'true') {
+            setUser(null);
         }
-    );
-    return unsubscribe;
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Universal User Loader
-  const initializeUser = (uid: string, email: string, username: string, isGuest: boolean) => {
-    const storageKey = `typearena_data_${uid}`;
-    const storedData = localStorage.getItem(storageKey);
-    
-    let activeUser: User;
-    if (storedData) {
-      activeUser = JSON.parse(storedData);
-    } else {
-      activeUser = {
-        id: uid,
-        email: email,
-        username: username,
-        isGuest: isGuest,
-        ...INITIAL_STATS
-      };
-      // Explicitly save the new user stats immediately
-      localStorage.setItem(`typearena_data_${uid}`, JSON.stringify(activeUser));
-    }
-    
-    setUser(activeUser);
-    
-    if (!isGuest) {
-        localStorage.setItem('typearena_current_user_id', uid);
-    } else {
-        localStorage.setItem('typearena_is_guest', 'true');
-    }
-  };
+  async function loadUserProfile(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-  const saveUserToStorage = (u: User) => {
-    setUser(u);
-    localStorage.setItem(`typearena_data_${u.id}`, JSON.stringify(u));
-  };
+      if (error || !data) {
+          console.warn("Profile not found for authenticated user:", userId, error);
+          return;
+      }
+
+      const matches = await getMatchHistory(userId);
+      const dbUser = data as DbUser;
+      
+      const safeUsername = typeof dbUser.username === 'string' ? dbUser.username : "Player";
+      const safeRank = typeof dbUser.rank === 'string' ? dbUser.rank as Rank : Rank.BRONZE_I;
+
+      setUser({
+        id: dbUser.id,
+        username: safeUsername,
+        isGuest: false,
+        xp: Number(dbUser.xp) || 0,
+        rank: safeRank,
+        bestWpm: Number(dbUser.best_wpm) || 0,
+        avgWpm: Number(dbUser.average_wpm) || 0,
+        winStreak: Number(dbUser.win_streak) || 0,
+        matches: matches
+      });
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const login = async (email: string, pass: string) => {
-    // Immediate handler for Mock Mode
-    if (isMockMode) {
-        await new Promise(resolve => setTimeout(resolve, 800)); // Fake network delay
-        const mockId = generateMockId(email);
-        const storageKey = `typearena_data_${mockId}`;
-        
-        const existingData = localStorage.getItem(storageKey);
-
-        if (!existingData) {
-            // Simulate Error: User not found
-            const error: any = new Error("Account not found");
-            error.code = 'auth/user-not-found';
-            throw error;
-        }
-
-        const userData = JSON.parse(existingData);
-        // In a real app we would check password hash here. 
-        // For mock, existence of account is enough authentication.
-        
-        initializeUser(mockId, email, userData.username, false);
-        return;
-    }
-
-    try {
-        await signInWithEmailAndPassword(auth, email, pass);
-    } catch (error: any) {
-        console.warn("Firebase Login Error:", error.code);
-        // Robust Fallback: If network/api error, degrade to mock mode seamlessly
-        if (
-          error.code === 'auth/api-key-not-valid' || 
-          error.code === 'auth/operation-not-allowed' || 
-          error.code === 'auth/internal-error' ||
-          error.code === 'auth/network-request-failed'
-        ) {
-            console.warn("Falling back to local session due to configuration error.");
-            await new Promise(resolve => setTimeout(resolve, 800));
-            const mockId = 'offline_' + btoa(email).replace(/=/g, '');
-            // In fallback mode, we default to allowing login to prevent lockout during errors,
-            // or we could enforce strict checks too. Let's allow access for robustness.
-            initializeUser(mockId, email, email.split('@')[0], false);
-            return;
-        }
-        throw error;
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
   };
 
   const signup = async (email: string, pass: string, username: string) => {
-    if (isMockMode) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const mockId = generateMockId(email);
-        const storageKey = `typearena_data_${mockId}`;
-        
-        if (localStorage.getItem(storageKey)) {
-             const error: any = new Error("Email already in use");
-             error.code = 'auth/email-already-in-use';
-             throw error;
+    // 1. Create the Auth User with metadata.
+    // The DB trigger uses raw_user_meta_data->>'username' to populate public.users.
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password: pass,
+      options: {
+        data: {
+          username: username
         }
+      }
+    });
 
-        initializeUser(mockId, email, username, false);
-        return;
-    }
+    if (error) throw error;
+    if (!data.user) throw new Error("Registration failed: No user returned.");
 
-    try {
-        const res = await createUserWithEmailAndPassword(auth, email, pass);
-        initializeUser(res.user.uid, email, username, false);
-    } catch (error: any) {
-        console.warn("Firebase Signup Error:", error.code);
-        if (
-          error.code === 'auth/api-key-not-valid' || 
-          error.code === 'auth/operation-not-allowed' || 
-          error.code === 'auth/internal-error' ||
-          error.code === 'auth/network-request-failed'
-        ) {
-            console.warn("Falling back to local session due to configuration error.");
-            await new Promise(resolve => setTimeout(resolve, 800));
-            const mockId = 'offline_' + btoa(email).replace(/=/g, '');
-            initializeUser(mockId, email, username, false);
-            return;
-        }
-        throw error;
+    // 2. Loading Grace Period
+    // Give the database trigger time to create the public.users record.
+    await new Promise(res => setTimeout(res, 1000));
+    
+    // Refresh user state immediately if session was auto-started (standard for Supabase without email confirm)
+    if (data.session || data.user) {
+        await loadUserProfile(data.user.id);
     }
   };
 
   const guestLogin = () => {
-    const guestId = 'guest_' + Date.now();
-    initializeUser(guestId, '', 'Guest', true);
+    localStorage.setItem('typearena_is_guest', 'true');
+    setUser({
+      id: 'guest_' + Date.now(),
+      username: 'Guest',
+      isGuest: true,
+      xp: 0,
+      rank: Rank.BRONZE_I,
+      matches: [],
+      bestWpm: 0,
+      avgWpm: 0,
+      winStreak: 0
+    });
+    setLoading(false);
   };
 
   const logout = async () => {
-    if (!isMockMode) {
-        try { await signOut(auth); } catch (e) { console.warn(e); }
-    }
-    setUser(null);
+    await supabase.auth.signOut();
     localStorage.removeItem('typearena_is_guest');
-    localStorage.removeItem('typearena_current_user_id');
+    setUser(null);
   };
 
-  const addMatch = (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => {
+  const addMatch = async (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => {
     if (!user) return;
 
     let newStreak = user.winStreak || 0;
@@ -241,7 +158,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (stats.mode === GameMode.MULTIPLAYER && typeof isMultiplayerWin !== 'undefined') {
         if (isMultiplayerWin) {
             newStreak += 1;
-            // Only award bonus if streak is greater than 1
             if (newStreak > 1) {
                 const streakBonus = Math.min(newStreak * 10, 100);
                 finalXp += streakBonus;
@@ -264,7 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const totalWpm = newMatches.reduce((acc, m) => acc + m.wpm, 0);
     const avg = newMatches.length > 0 ? Math.round(totalWpm / newMatches.length) : 0;
 
-    const updatedUser = {
+    const updatedUser: User = {
       ...user,
       xp: newXp,
       rank: newRank,
@@ -274,7 +190,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       winStreak: newStreak
     };
 
-    saveUserToStorage(updatedUser);
+    setUser(updatedUser);
+
+    if (!user.isGuest) {
+        try {
+            await saveMatchHistory(user.id, stats);
+            // Column names updated to match public.users table (average_wpm)
+            await supabase.from('users').update({
+                xp: newXp,
+                rank: newRank,
+                best_wpm: newBest,
+                average_wpm: avg,
+                win_streak: newStreak,
+                updated_at: new Date().toISOString()
+            }).eq('id', user.id);
+        } catch (err) {
+            console.error("Supabase Sync Error:", err);
+        }
+    }
   };
 
   const dismissLevelUp = () => {

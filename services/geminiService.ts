@@ -4,13 +4,7 @@ import { Difficulty, GameResult } from "../types";
 import { FALLBACK_TEXTS } from "../constants";
 
 const getClient = () => {
-  let apiKey = undefined;
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-      apiKey = process.env.API_KEY;
-    }
-  } catch (e) {}
-
+  const apiKey = process.env.API_KEY;
   if (!apiKey) return null;
   return new GoogleGenAI({ apiKey });
 };
@@ -126,9 +120,12 @@ export const generatePracticeText = async (difficulty: Difficulty): Promise<stri
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
-      const text = response.text.trim().replace(/^"|"$/g, ''); // Remove wrapping quotes if present
       
-      if (validateText(text, difficulty)) {
+      const rawText = response.text;
+      const generatedText = typeof rawText === 'string' ? rawText : "";
+      const text = generatedText.trim().replace(/^"|"$/g, '');
+      
+      if (text && validateText(text, difficulty)) {
         finalResult = text;
         textCache.add(text);
         if (textCache.size > MAX_CACHE_SIZE) {
@@ -163,7 +160,10 @@ export const analyzePerformance = async (stats: GameResult): Promise<string> => 
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text.trim();
+    
+    const rawText = response.text;
+    const text = typeof rawText === 'string' ? rawText : "";
+    return (text || "Maintain rhythm.|Ready for next level.").trim();
   } catch (error) {
     return "Maintain a consistent rhythm.|Reflexes valid, Player!";
   }

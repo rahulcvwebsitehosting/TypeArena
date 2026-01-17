@@ -75,45 +75,45 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Overview - Now Interactive */}
+      {/* Stats Overview - Enhanced Interaction */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-transform duration-300 hover:scale-[1.02] cursor-default hover:border-neon-green/30">
+        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-all duration-300 hover:scale-[1.05] hover:-translate-y-1 cursor-default hover:border-neon-green/30 hover:shadow-lg hover:shadow-neon-green/5 group">
             <div className="flex items-center gap-2 mb-2">
-                <Award className="text-neon-green" size={16} />
+                <Award className="text-neon-green group-hover:scale-110 transition-transform" size={16} />
                 <h3 className="text-slate-500 font-bold uppercase text-xs">Rank</h3>
             </div>
             <p className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{user?.rank || 'Unranked'}</p>
             <div className="h-2 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                 <div 
-                    className="h-full bg-neon-green" 
+                    className="h-full bg-neon-green shadow-[0_0_8px_#10B981]" 
                     style={{ width: `${targetProgress}%` }}
                 ></div>
             </div>
              <p className="text-xs text-slate-500 mt-1">{progressData.currentRankXP} / {progressData.rankTotalXP} XP</p>
         </div>
 
-        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-transform duration-300 hover:scale-[1.02] cursor-default hover:border-neon-purple/30">
+        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-all duration-300 hover:scale-[1.05] hover:-translate-y-1 cursor-default hover:border-neon-purple/30 hover:shadow-lg hover:shadow-neon-purple/5 group">
              <div className="flex items-center gap-2 mb-2">
-                <Zap className="text-neon-purple" size={16} />
+                <Zap className="text-neon-purple group-hover:scale-110 transition-transform" size={16} />
                 <h3 className="text-slate-500 font-bold uppercase text-xs">Best WPM</h3>
             </div>
-            <p className="text-3xl font-mono font-bold text-slate-800 dark:text-white">{user?.bestWpm || 0}</p>
+            <p className="text-3xl font-mono font-bold text-slate-800 dark:text-white group-hover:text-neon-purple transition-colors">{user?.bestWpm || 0}</p>
         </div>
 
-        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-transform duration-300 hover:scale-[1.02] cursor-default hover:border-neon-cyan/30">
+        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-all duration-300 hover:scale-[1.05] hover:-translate-y-1 cursor-default hover:border-neon-cyan/30 hover:shadow-lg hover:shadow-neon-cyan/5 group">
              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="text-neon-cyan" size={16} />
+                <TrendingUp className="text-neon-cyan group-hover:scale-110 transition-transform" size={16} />
                 <h3 className="text-slate-500 font-bold uppercase text-xs">Avg WPM</h3>
             </div>
-            <p className="text-3xl font-mono font-bold text-slate-800 dark:text-white">{user?.avgWpm || 0}</p>
+            <p className="text-3xl font-mono font-bold text-slate-800 dark:text-white group-hover:text-neon-cyan transition-colors">{user?.avgWpm || 0}</p>
         </div>
 
-        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-transform duration-300 hover:scale-[1.02] cursor-default hover:border-orange-500/30">
+        <div className="bg-white dark:bg-abyss p-6 rounded-xl border border-slate-200 dark:border-white/5 transform transition-all duration-300 hover:scale-[1.05] hover:-translate-y-1 cursor-default hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 group">
              <div className="flex items-center gap-2 mb-2">
-                <Flame className="text-orange-500" size={16} />
+                <Flame className="text-orange-500 group-hover:scale-110 transition-transform" size={16} />
                 <h3 className="text-slate-500 font-bold uppercase text-xs">Streak</h3>
             </div>
-            <p className="text-3xl font-mono font-bold text-slate-800 dark:text-white">{user?.winStreak || 0}</p>
+            <p className="text-3xl font-mono font-bold text-slate-800 dark:text-white group-hover:text-orange-500 transition-colors">{user?.winStreak || 0}</p>
         </div>
       </div>
     </div>
