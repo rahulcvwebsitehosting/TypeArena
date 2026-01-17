@@ -4,7 +4,7 @@ import { generatePracticeText } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
-import { Loader2, Zap, Check, Copy, Lock, Globe, Users, User as UserIcon } from 'lucide-react';
+import { Loader2, Zap, Check, Copy, Lock, Globe, Users, User as UserIcon, Timer } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -32,12 +32,13 @@ const Multiplayer: React.FC = () => {
   const [text, setText] = useState('');
   const [opponents, setOpponents] = useState<Opponent[]>([]);
   const [countdown, setCountdown] = useState(3);
+  const [raceTimer, setRaceTimer] = useState(60);
   const [result, setResult] = useState<GameResult | null>(null);
   const [playerWon, setPlayerWon] = useState(false);
-  const [placement, setPlacement] = useState(0);
-  const [loadingText, setLoadingText] = useState("Finding opponents...");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   
+  // Added missing loadingText state
+  const [loadingText, setLoadingText] = useState('Initializing Arena...');
   const [lobbyId, setLobbyId] = useState<string>('');
   const [hostName, setHostName] = useState<string>('');
   const [hostWpm, setHostWpm] = useState<number>(0);
@@ -46,7 +47,9 @@ const Multiplayer: React.FC = () => {
   const [peerCount, setPeerCount] = useState(0);
 
   const raceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<any>(null);
+  const currentStatsRef = useRef<GameResult | null>(null);
 
   const getDifficultyByRank = (rank: Rank | undefined): Difficulty => {
     if (!rank) return Difficulty.EASY;
@@ -118,6 +121,7 @@ const Multiplayer: React.FC = () => {
     }
     return () => {
         if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
+        if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
     };
   }, [searchParams]);
 
@@ -149,29 +153,29 @@ const Multiplayer: React.FC = () => {
   };
 
   const startPrivateMatch = async () => {
-    if (peerCount < 2) return; // Guard clause for host
+    if (peerCount < 2) return; 
 
     setStatus('SEARCHING');
-    setLoadingText("Synchronizing players...");
+    setLoadingText("Generating Arena Text...");
     
+    // Request a much longer text for marathon mode
     const difficulty = getDifficultyByRank(user?.rank);
     const generatedText = await generatePracticeText(difficulty);
-    setText(generatedText);
+    // Duplicate text to ensure it's long enough for 1 minute
+    const marathonText = (generatedText + " ").repeat(5); 
+    setText(marathonText);
     
-    // Broadcast to joined peer
     if (channelRef.current) {
         channelRef.current.send({
             type: 'broadcast',
             event: 'START_RACE',
             payload: { 
-                text: generatedText,
+                text: marathonText,
                 hostData: { name: user?.username, wpm: user?.avgWpm || 40 }
             }
         });
     }
 
-    // Set up host's view of the opponent
-    // We try to find the other user's info from presence
     const presence = channelRef.current.presenceState();
     const otherUserId = Object.keys(presence).find(id => id !== user?.id);
     const otherUser = otherUserId ? presence[otherUserId][0] : null;
@@ -188,24 +192,25 @@ const Multiplayer: React.FC = () => {
     setStatus('SEARCHING');
     setResult(null);
     setPlayerWon(false);
-    setPlacement(0);
     setLeaderboard([]);
+    setRaceTimer(60);
     
-    setLoadingText(isPrivate ? "Connecting..." : "Searching...");
+    setLoadingText("Initializing Server...");
     
     const difficulty = getDifficultyByRank(user?.rank);
     const generatedText = await generatePracticeText(difficulty);
-    setText(generatedText);
+    const marathonText = (generatedText + " ").repeat(5);
+    setText(marathonText);
     
     const newOpponents: Opponent[] = [];
     const r = user?.rank || Rank.BRONZE_I;
-    let minWpm = 15;
+    let minWpm = 20;
     let maxVar = 15;
 
-    if (r.includes('Bronze')) { minWpm = 15; maxVar = 15; }
-    else if (r.includes('Silver')) { minWpm = 30; maxVar = 20; }
-    else if (r.includes('Gold')) { minWpm = 45; maxVar = 20; }
-    else { minWpm = 70; maxVar = 30; }
+    if (r.includes('Bronze')) { minWpm = 25; maxVar = 15; }
+    else if (r.includes('Silver')) { minWpm = 40; maxVar = 20; }
+    else if (r.includes('Gold')) { minWpm = 55; maxVar = 20; }
+    else { minWpm = 80; maxVar = 30; }
 
     const numBots = Math.floor(Math.random() * 2) + 1; 
 
@@ -214,7 +219,7 @@ const Multiplayer: React.FC = () => {
             id: `bot-${i}`,
             name: BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)],
             progress: 0,
-            wpm: Math.max(12, Math.floor(Math.random() * maxVar) + minWpm),
+            wpm: Math.max(15, Math.floor(Math.random() * maxVar) + minWpm),
             accuracy: 94,
             color: COLORS[i % COLORS.length],
             isFinished: false
@@ -231,12 +236,34 @@ const Multiplayer: React.FC = () => {
             return () => clearTimeout(timer);
         } else {
             setStatus('RACING');
+            setRaceTimer(60);
             startBotRace();
+            startRaceClock();
         }
-    } else if (status === 'SEARCHING') {
-        setCountdown(3);
     }
   }, [status, countdown]);
+
+  const startRaceClock = () => {
+      clockIntervalRef.current = setInterval(() => {
+          setRaceTimer(prev => {
+              if (prev <= 1) {
+                  clearInterval(clockIntervalRef.current!);
+                  handleRaceTimeout();
+                  return 0;
+              }
+              return prev - 1;
+          });
+      }, 1000);
+  };
+
+  const handleRaceTimeout = () => {
+      if (currentStatsRef.current) {
+          handleFinish(currentStatsRef.current);
+      } else {
+          // Fallback if no stats were recorded yet
+          handleFinish({ wpm: 0, accuracy: 100, errors: 0, timeTaken: 60, characterStats: {} });
+      }
+  };
 
   const startBotRace = () => {
       const startTime = Date.now();
@@ -246,21 +273,27 @@ const Multiplayer: React.FC = () => {
               const now = Date.now();
               const elapsedMin = (now - startTime) / 60000;
               return prev.map(bot => {
-                  if (bot.isFinished) return bot;
                   const expectedChars = bot.wpm * 5 * elapsedMin;
                   const progress = Math.min(100, (expectedChars / textLength) * 100);
-                  return { ...bot, progress, isFinished: progress >= 100 };
+                  return { ...bot, progress };
               });
           });
-      }, 50);
+      }, 100);
+  };
+
+  const handleStatsUpdate = (stats: GameResult) => {
+      currentStatsRef.current = stats;
   };
 
   const handleFinish = (res: GameResult) => {
       if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
+      if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+      
       const allParticipants = [
           { id: 'user', name: user?.username || 'You', wpm: res.wpm, accuracy: res.accuracy, isUser: true },
           ...opponents.map(bot => ({ id: bot.id, name: bot.name, wpm: bot.wpm, accuracy: bot.accuracy, isUser: false }))
       ];
+      
       allParticipants.sort((a, b) => b.wpm - a.wpm);
       const rankedResults: LeaderboardEntry[] = allParticipants.map((p, index) => ({ ...p, rank: index + 1 }));
       setLeaderboard(rankedResults);
@@ -268,7 +301,6 @@ const Multiplayer: React.FC = () => {
       const userRank = rankedResults.find(p => p.isUser)?.rank || rankedResults.length;
       const isWin = userRank === 1;
 
-      setPlacement(userRank);
       setPlayerWon(isWin);
       setStatus('FINISHED');
       setResult(res);
@@ -281,7 +313,7 @@ const Multiplayer: React.FC = () => {
         mode: GameMode.MULTIPLAYER,
         difficulty: getDifficultyByRank(user?.rank),
         errors: res.errors
-      }, isWin ? 200 : 100, isWin); 
+      }, isWin ? 300 : 150, isWin); 
   };
 
   const copyInviteLink = () => {
@@ -298,20 +330,20 @@ const Multiplayer: React.FC = () => {
   if (lobbyMode === 'SELECT' && status === 'IDLE') {
       return (
           <div className="max-w-4xl mx-auto py-8">
-              <h2 className="text-3xl font-bold text-center text-slate-800 dark:text-white mb-8 italic">READY FOR WAR?</h2>
+              <h2 className="text-3xl font-bold text-center text-slate-800 dark:text-white mb-8 italic">MARATHON ARENA</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div onClick={handleStartRanked} className="group p-8 bg-white dark:bg-abyss rounded-xl border border-slate-200 dark:border-white/5 hover:border-neon-cyan cursor-pointer shadow-sm hover:shadow-xl hover:shadow-neon-cyan/10 transform transition-all duration-300 hover:-translate-y-2 text-center">
                       <Globe size={40} className="mx-auto mb-4 text-neon-cyan" />
-                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Ranked Arena</h3>
-                      <p className="text-slate-500 mb-4">Fastest match-up against bots & players.</p>
-                      <span className="text-neon-cyan font-bold text-sm uppercase">Quick Start</span>
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Ranked Marathon</h3>
+                      <p className="text-slate-500 mb-4">60-second endurance challenge.</p>
+                      <span className="text-neon-cyan font-bold text-sm uppercase tracking-widest">Deploy Now</span>
                   </div>
 
                   <div onClick={handleCreateLobby} className="group p-8 bg-white dark:bg-abyss rounded-xl border border-slate-200 dark:border-white/5 hover:border-neon-purple cursor-pointer shadow-sm hover:shadow-xl hover:shadow-neon-purple/10 transform transition-all duration-300 hover:-translate-y-2 text-center">
                       <Lock size={40} className="mx-auto mb-4 text-neon-purple" />
-                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Private Duel</h3>
-                      <p className="text-slate-500 mb-4">Requires a real opponent to join link.</p>
-                      <span className="text-neon-purple font-bold text-sm uppercase">Create Room</span>
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Timed Duel</h3>
+                      <p className="text-slate-500 mb-4">Challenge a real player to 1 minute.</p>
+                      <span className="text-neon-purple font-bold text-sm uppercase tracking-widest">Establish Room</span>
                   </div>
               </div>
           </div>
@@ -323,14 +355,13 @@ const Multiplayer: React.FC = () => {
         <div className="max-w-md mx-auto py-12 text-center space-y-6">
             <div className="p-6 bg-neon-cyan/10 border border-neon-cyan/20 rounded-2xl">
                 <Users size={32} className="mx-auto text-neon-cyan mb-3" />
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Lobby Joined</h2>
-                <p className="text-slate-500">Challenging: <span className="text-neon-cyan font-bold">{hostName}</span></p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Arena Joined</h2>
+                <p className="text-slate-500">Host: <span className="text-neon-cyan font-bold">{hostName}</span></p>
             </div>
             <div className="flex flex-col items-center gap-2">
                 <Loader2 className="animate-spin text-neon-cyan" size={24} />
-                <p className="text-sm font-mono text-slate-400 uppercase tracking-widest">Waiting for host to start...</p>
+                <p className="text-sm font-mono text-slate-400 uppercase tracking-widest">Syncing clocks with host...</p>
             </div>
-            <button onClick={() => { setLobbyMode('SELECT'); setIsPrivateMatch(false); }} className="text-slate-500 hover:text-red-500 text-sm font-bold">CANCEL MISSION</button>
         </div>
     );
   }
@@ -341,10 +372,10 @@ const Multiplayer: React.FC = () => {
               <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Awaiting Challenger</h2>
               
               <div className="bg-slate-100 dark:bg-white/5 p-4 rounded-xl flex items-center gap-3 mb-8 border border-slate-200 dark:border-white/10">
-                  <div className="flex-1 text-xs text-slate-500 truncate text-left font-mono">Invite your opponent...</div>
+                  <div className="flex-1 text-xs text-slate-500 truncate text-left font-mono">Invite link for 1-minute duel...</div>
                   <button onClick={copyInviteLink} className="flex items-center gap-2 px-4 py-2 bg-neon-purple text-white rounded-lg font-bold hover:scale-105 active:scale-95 transition-transform text-xs">
                       {copied ? <Check size={14} /> : <Copy size={14} />}
-                      {copied ? 'COPIED' : 'COPY LINK'}
+                      {copied ? 'COPIED' : 'COPY'}
                   </button>
               </div>
 
@@ -356,7 +387,7 @@ const Multiplayer: React.FC = () => {
                       </div>
                   </div>
                   <p className={`text-sm font-bold uppercase tracking-widest ${peerCount >= 2 ? 'text-neon-green' : 'text-slate-400'}`}>
-                      {peerCount >= 2 ? 'Opponent Connected' : 'Waiting for connection...'}
+                      {peerCount >= 2 ? 'Challenger Ready' : 'Awaiting Peer...'}
                   </p>
               </div>
 
@@ -369,9 +400,8 @@ const Multiplayer: React.FC = () => {
                     : 'bg-slate-200 dark:bg-white/5 text-slate-400 cursor-not-allowed'
                 }`}
               >
-                  {peerCount >= 2 ? 'COMMENCE DUEL' : 'LOCKED (NO OPPONENT)'}
+                  {peerCount >= 2 ? 'START 60s RACE' : 'PEER REQUIRED'}
               </button>
-              <button onClick={() => { setLobbyMode('SELECT'); setIsPrivateMatch(false); }} className="text-slate-500 hover:text-red-500 text-sm font-bold">ABORT SESSION</button>
           </div>
       );
   }
@@ -387,13 +417,23 @@ const Multiplayer: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-        <div className="mb-6 flex justify-between items-end border-b border-slate-200 dark:border-white/5 pb-4">
+        <div className="mb-6 flex justify-between items-center border-b border-slate-200 dark:border-white/5 pb-4">
             <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <Zap className="text-neon-cyan" size={20} /> Arena Duel
+                <Zap className="text-neon-cyan" size={20} /> Marathon Duel
             </h2>
+            
+            <div className={`flex items-center gap-3 px-6 py-2 rounded-full border-2 transition-all ${raceTimer <= 10 ? 'border-red-500 bg-red-500/10 animate-pulse' : 'border-neon-cyan bg-neon-cyan/5'}`}>
+                <Timer size={20} className={raceTimer <= 10 ? 'text-red-500' : 'text-neon-cyan'} />
+                <span className={`font-mono text-2xl font-black ${raceTimer <= 10 ? 'text-red-500' : 'text-slate-800 dark:text-white'}`}>
+                    00:{raceTimer.toString().padStart(2, '0')}
+                </span>
+            </div>
+
             {status === 'COUNTDOWN' && (
-                <div className="text-4xl font-black text-neon-cyan animate-bounce italic">
-                    {countdown > 0 ? countdown : 'GO!'}
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="text-[12rem] font-black text-white italic animate-pop-in drop-shadow-[0_0_50px_rgba(6,182,212,0.8)]">
+                        {countdown > 0 ? countdown : 'GO!'}
+                    </div>
                 </div>
             )}
         </div>
@@ -402,31 +442,36 @@ const Multiplayer: React.FC = () => {
             text={text}
             isGameActive={status === 'RACING'}
             onGameFinish={handleFinish}
+            onStatsUpdate={handleStatsUpdate}
             opponents={opponents}
+            isTimedMode={true}
         />
 
         {status === 'FINISHED' && result && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
                 <div className="bg-white dark:bg-abyss p-8 rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-white/10 animate-pop-in">
                     <h2 className={`text-5xl font-black text-center mb-8 italic tracking-tighter ${playerWon ? 'text-neon-cyan' : 'text-red-500'}`}>
-                        {playerWon ? 'VICTORY' : 'DEFEATED'}
+                        {playerWon ? 'ARENA MASTER' : 'RANK DOWN'}
                     </h2>
                     
                     <div className="space-y-3 mb-8">
                         {leaderboard.map((entry) => (
-                            <div key={entry.id} className={`flex justify-between items-center p-4 rounded-xl border-2 ${entry.isUser ? 'border-neon-cyan/50 bg-neon-cyan/5' : 'border-transparent bg-slate-50 dark:bg-white/5'}`}>
+                            <div key={entry.id} className={`flex justify-between items-center p-4 rounded-xl border-2 transition-all ${entry.isUser ? 'border-neon-cyan bg-neon-cyan/10 scale-105 shadow-lg shadow-neon-cyan/20' : 'border-transparent bg-slate-50 dark:bg-white/5'}`}>
                                 <div className="flex gap-4 items-center">
                                     <span className={`text-2xl font-black italic ${entry.rank === 1 ? 'text-yellow-400' : 'text-slate-400'}`}>#{entry.rank}</span>
                                     <span className={`font-bold ${entry.isUser ? 'text-neon-cyan' : 'text-slate-800 dark:text-white'}`}>{entry.name}</span>
                                 </div>
-                                <span className="font-mono font-black text-xl">{entry.wpm} <span className="text-[10px] text-slate-500">WPM</span></span>
+                                <div className="text-right">
+                                    <span className="block font-mono font-black text-xl">{entry.wpm} <span className="text-[10px] text-slate-500">WPM</span></span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{entry.accuracy}% ACC</span>
+                                </div>
                             </div>
                         ))}
                     </div>
 
                     <div className="flex gap-4">
-                        <button onClick={() => window.location.reload()} className="flex-1 py-4 bg-neon-cyan text-black font-black rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-neon-cyan/20 uppercase tracking-widest">Rematch</button>
-                        <button onClick={() => navigate('/')} className="flex-1 py-4 bg-slate-100 dark:bg-white/10 text-slate-500 font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest">Exit</button>
+                        <button onClick={() => window.location.reload()} className="flex-1 py-4 bg-neon-cyan text-black font-black rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-neon-cyan/20 uppercase tracking-widest">Re-Queue</button>
+                        <button onClick={() => navigate('/')} className="flex-1 py-4 bg-slate-100 dark:bg-white/10 text-slate-500 font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest">Dismiss</button>
                     </div>
                 </div>
             </div>
