@@ -28,10 +28,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [levelUpEvent, setLevelUpEvent] = useState<LevelUpEvent | null>(null);
-  const isInitializing = useRef(false);
+  const initialized = useRef(false);
 
   // Profile loader with retry logic for database trigger consistency
-  const loadUserProfile = async (userId: string, retries = 3) => {
+  const loadUserProfile = async (userId: string, retries = 2) => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -44,11 +44,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!data) {
         if (retries > 0) {
           console.warn(`Profile for ${userId} not found yet. Retrying... (${retries} left)`);
-          await new Promise(res => setTimeout(res, 2000));
+          await new Promise(res => setTimeout(res, 800)); // Faster retries
           return loadUserProfile(userId, retries - 1);
         }
-        console.error("Profile not found after retries. User may need to re-register or check DB triggers.");
+        // If profile is genuinely missing after retries, don't hang.
+        // This can happen if triggers fail or project is in a weird state.
+        console.error("Profile not found in database. Please contact support or try re-registering.");
         setUser(null);
+        setLoading(false);
         return;
       }
 
@@ -66,68 +69,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         winStreak: Number(dbUser.win_streak) || 0,
         matches: matches
       });
+      setLoading(false);
     } catch (err) {
       console.error('Failed to load profile:', err);
       setUser(null);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     let mounted = true;
 
-    const initializeAuth = async () => {
-      if (isInitializing.current) return;
-      isInitializing.current = true;
-
-      try {
-        // 1. Check for active session immediately
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) throw error;
-
-        if (session?.user) {
-          await loadUserProfile(session.user.id);
-        } else {
-          // 2. Check for Guest Mode if no session
-          const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
-          if (isGuest && mounted) {
-            guestLogin();
-          }
-        }
-      } catch (err) {
-        console.error("Auth initialization error:", err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    // 3. Listen for auth changes (Login, Logout, Token Refresh)
+    // Listen for auth changes (Login, Logout, Initial Session, Token Refresh)
+    // Supabase fires this immediately with the current state on subscription.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Prevent redundant loading if session is already established
-        setLoading(true);
+      if (session?.user) {
+        // If we have a user, fetch their database profile
         await loadUserProfile(session.user.id);
-        setLoading(false);
-      } else if (event === 'SIGNED_OUT') {
+      } else {
+        // No session found, check for Guest Mode or just stop loading
         const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
-        if (!isGuest) {
+        if (isGuest) {
+          guestLogin();
+        } else {
           setUser(null);
           setLoading(false);
         }
       }
     });
 
-    // Safety timeout: If app is stuck loading for more than 10 seconds, force show UI
+    // High-priority safety timeout: If app is stuck loading for more than 6 seconds, force show UI
+    // Reduced from 10s to 6s for better UX on slow connections.
     const safetyTimer = setTimeout(() => {
       if (mounted && loading) {
-        console.warn("Auth initialization taking too long. Forcing load completion.");
+        console.warn("Auth took too long. Forcing load completion.");
         setLoading(false);
       }
-    }, 10000);
+    }, 6000);
 
     return () => {
       mounted = false;
