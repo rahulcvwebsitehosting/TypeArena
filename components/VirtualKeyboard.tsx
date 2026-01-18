@@ -18,7 +18,14 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyPress, activeKey
 
   const getKeyLabel = (key: string) => {
     if (key === 'BS') return <Delete size={18} />;
-    if (key === 'SPACE') return <div className="w-48 h-1 bg-white/20 rounded-full" />;
+    if (key === 'SPACE') return (
+      <div className="flex flex-col items-center gap-1 w-full max-w-[320px]">
+        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden relative border border-white/5">
+            <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent transition-opacity duration-300 ${isKeyActive('SPACE') ? 'opacity-100' : 'opacity-20'}`}></div>
+        </div>
+        <span className="text-[8px] font-black tracking-[0.6em] text-white/30 uppercase">Space</span>
+      </div>
+    );
     return key;
   };
 
@@ -31,12 +38,15 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyPress, activeKey
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-white/10 mt-8 select-none animate-fade-in">
+    <div className="w-full max-w-3xl mx-auto p-4 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-white/10 mt-8 select-none animate-fade-in shadow-2xl">
       <div className="space-y-2">
         {rows.map((row, rowIndex) => (
           <div key={rowIndex} className="flex justify-center gap-1.5">
             {row.map((key) => {
               const active = isKeyActive(key);
+              const isSpace = key === 'SPACE';
+              const isBS = key === 'BS';
+              
               return (
                 <button
                   key={key}
@@ -46,14 +56,14 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyPress, activeKey
                   }}
                   className={`
                     flex items-center justify-center rounded-lg font-bold transition-all duration-75
-                    ${key === 'SPACE' ? 'px-12 flex-grow max-w-[400px]' : 'w-10 h-12 md:w-12 md:h-14'}
-                    ${key === 'BS' ? 'w-16 bg-red-500/10 text-red-400' : 'bg-white/5 text-slate-300'}
+                    ${isSpace ? 'px-12 flex-grow max-w-[450px] min-w-[200px]' : 'w-10 h-12 md:w-12 md:h-14'}
+                    ${isBS ? 'w-16 bg-red-500/10 text-red-400' : 'bg-white/5 text-slate-300'}
                     ${active 
-                      ? 'scale-95 bg-neon-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.6)] translate-y-0.5' 
+                      ? `${isSpace ? 'bg-neon-cyan shadow-[0_0_20px_rgba(6,182,212,0.6)]' : 'bg-neon-purple shadow-[0_0_15px_rgba(139,92,246,0.6)]'} scale-95 text-white translate-y-0.5` 
                       : 'hover:bg-white/10 hover:border-white/20 border border-transparent'}
                   `}
                 >
-                  <span className="text-sm md:text-base">{getKeyLabel(key)}</span>
+                  <span className={`${isSpace ? 'w-full' : 'text-sm md:text-base'}`}>{getKeyLabel(key)}</span>
                 </button>
               );
             })}
@@ -61,8 +71,9 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyPress, activeKey
         ))}
       </div>
       <div className="mt-4 flex justify-center gap-8 text-[10px] uppercase font-black tracking-widest text-slate-500">
-        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-neon-purple shadow-[0_0_5px_#8B5CF6]"></div> Active Key</span>
-        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-white/10"></div> Idle Key</span>
+        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-neon-purple shadow-[0_0_5px_#8B5CF6]"></div> Standard</span>
+        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-neon-cyan shadow-[0_0_5px_#06B6D4]"></div> Space</span>
+        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-white/10"></div> Idle</span>
       </div>
     </div>
   );
