@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameResult, Opponent } from '../types';
-import { Clock, Activity, Target, Zap } from 'lucide-react';
+import { Clock, Activity, Target, Zap, Keyboard, Monitor } from 'lucide-react';
+import VirtualKeyboard from './VirtualKeyboard';
 
 interface TypingEngineProps {
   text: string;
@@ -25,6 +26,8 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const [currentTime, setCurrentTime] = useState(0); 
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
+  const [keyboardMode, setKeyboardMode] = useState<'PHYSICAL' | 'VIRTUAL'>('PHYSICAL');
+  const [lastKeyPressed, setLastKeyPressed] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [errors, setErrors] = useState(0);
@@ -39,12 +42,16 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       setAccuracy(100);
       setErrors(0);
       setMissedChars({});
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (keyboardMode === 'PHYSICAL') {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     }
-  }, [isGameActive, text]);
+  }, [isGameActive, text, keyboardMode]);
 
   const handleContainerClick = () => {
-    inputRef.current?.focus();
+    if (keyboardMode === 'PHYSICAL') {
+      inputRef.current?.focus();
+    }
   };
 
   const calculateStats = useCallback((finalInput?: string) => {
@@ -99,38 +106,80 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     return () => cancelAnimationFrame(animationFrameId);
   }, [startTime, isGameActive]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle key capture for physical keyboard highlighting even if not in VIRTUAL mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      setLastKeyPressed(e.key);
+    };
+    const handleKeyUp = () => {
+      setLastKeyPressed('');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const processInput = (newVal: string) => {
     if (!isGameActive) return;
-    const val = e.target.value;
     
     // Safety check: don't allow typing beyond buffer
-    if (val.length > text.length) return;
+    if (newVal.length > text.length) return;
 
-    if (!startTime && val.length === 1) {
+    if (!startTime && newVal.length === 1) {
         setStartTime(Date.now());
     }
 
-    if (val.length > input.length) {
-        const charIndex = val.length - 1;
-        const typedChar = val[charIndex];
+    if (newVal.length > input.length) {
+        const charIndex = newVal.length - 1;
+        const typedChar = newVal[charIndex];
         const expectedChar = text[charIndex];
-        if (typedChar !== expectedChar) {
+        
+        // Use case-insensitive comparison for virtual buttons if needed, but text usually has case
+        // For physical it's exact, for virtual we might need to handle lowercase
+        const match = typedChar === expectedChar || typedChar.toLowerCase() === expectedChar.toLowerCase();
+
+        if (!match) {
              setErrors(prev => prev + 1);
              setMissedChars(prev => ({ ...prev, [expectedChar]: (prev[expectedChar] || 0) + 1 }));
         }
+        
+        // Correct the value to match text's casing for the internal state if virtual key was used
+        const correctCasedVal = input + expectedChar;
+        setInput(match ? correctCasedVal : newVal);
+    } else {
+        // Handle deletions
+        setInput(newVal);
     }
-    
-    setInput(val);
 
     // Auto-finish only if NOT in timed mode
-    if (!isTimedMode && val.length === text.length) {
-        const finalStats = calculateStats(val);
+    if (!isTimedMode && newVal.length === text.length) {
+        const finalStats = calculateStats(newVal);
         if (finalStats) onGameFinish(finalStats);
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processInput(e.target.value);
+  };
+
+  const handleVirtualKeyPress = (key: string) => {
+    if (!isGameActive) return;
+    
+    if (key === 'Backspace') {
+      processInput(input.slice(0, -1));
+    } else if (key.length === 1) {
+      processInput(input + key);
+    }
+
+    // Visual feedback for virtual click
+    setLastKeyPressed(key);
+    setTimeout(() => setLastKeyPressed(''), 100);
+  };
+
   const renderText = () => {
-    // Only render a window of text to keep performance high for marathon mode
     const startIndex = Math.max(0, input.length - 100);
     const endIndex = Math.min(text.length, input.length + 300);
     const visibleText = text.split('').slice(startIndex, endIndex);
@@ -196,28 +245,36 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const formatSeconds = (ms: number) => Math.floor(ms / 1000).toString().padStart(2, '0');
   const formatMillis = (ms: number) => Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
 
-  // Anti-cheat handlers
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-  };
-
-  const handleCopy = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-  };
-
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-  };
+  const handlePaste = (e: React.ClipboardEvent) => e.preventDefault();
+  const handleCopy = (e: React.ClipboardEvent) => e.preventDefault();
+  const handleContextMenu = (e: React.MouseEvent) => e.preventDefault();
 
   return (
     <div className="w-full max-w-4xl mx-auto relative flex flex-col items-center">
-      {/* Visual Gaming Timer HUD - Hidden in Timed Mode as parent shows it better */}
+      
+      {/* Keyboard Mode Toggle */}
+      <div className="w-full flex justify-end mb-4 px-2">
+        <div className="bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10 flex gap-1">
+           <button 
+            onClick={() => setKeyboardMode('PHYSICAL')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${keyboardMode === 'PHYSICAL' ? 'bg-white dark:bg-white/10 text-neon-cyan shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-white'}`}
+           >
+             <Keyboard size={14} /> Physical
+           </button>
+           <button 
+            onClick={() => setKeyboardMode('VIRTUAL')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${keyboardMode === 'VIRTUAL' ? 'bg-white dark:bg-white/10 text-neon-purple shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-white'}`}
+           >
+             <Monitor size={14} /> Virtual
+           </button>
+        </div>
+      </div>
+
       {!isTimedMode && (
         <div className={`transition-all duration-500 transform ${startTime && isGameActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-90'} mb-8 w-full`}>
             <div className="flex flex-col items-center">
                 <div className="relative bg-slate-900/90 dark:bg-black/80 backdrop-blur-md px-10 py-3 rounded-2xl border-b-4 border-neon-cyan shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-6 group overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
-                    
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-neon-cyan/20 rounded-lg animate-pulse">
                             <Clock size={24} className="text-neon-cyan" />
@@ -229,9 +286,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
                             </span>
                         </div>
                     </div>
-
                     <div className="h-10 w-px bg-slate-700"></div>
-
                     <div className="flex items-center gap-3">
                          <div className="p-2 bg-neon-purple/20 rounded-lg">
                             <Activity size={24} className="text-neon-purple" />
@@ -246,7 +301,6 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         </div>
       )}
 
-      {/* Main Stats Card */}
       <div className={`w-full grid grid-cols-3 gap-1 mb-6 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5 shadow-inner transition-all ${startTime && isGameActive ? 'opacity-50 scale-95 blur-[0.5px]' : 'opacity-100'}`}>
         <div className="bg-white dark:bg-abyss p-4 rounded-xl text-center flex flex-col items-center justify-center">
             <Zap size={14} className="text-neon-purple mb-1 opacity-50" />
@@ -281,7 +335,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
             onChange={handleChange}
             onPaste={handlePaste}
             autoComplete="off"
-            disabled={!isGameActive}
+            disabled={!isGameActive || keyboardMode === 'VIRTUAL'}
         />
         <div 
           onCopy={handleCopy}
@@ -301,6 +355,12 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
             </div>
         )}
       </div>
+
+      {/* Persistent Virtual Keyboard for Feedback/Input */}
+      <VirtualKeyboard 
+        onKeyPress={handleVirtualKeyPress} 
+        activeKey={lastKeyPressed} 
+      />
     </div>
   );
 };
