@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Rank, MatchStats, GameMode } from '../types';
 import { getRankFromXP } from '../constants';
 import { supabase, DbUser } from '../services/supabase';
-import { saveMatchHistory, getMatchHistory } from '../services/matchService';
+import { getMatchHistory, saveMatchHistory } from '../services/matchService';
 
 interface LevelUpEvent {
   oldRank: Rank;
@@ -30,36 +30,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [levelUpEvent, setLevelUpEvent] = useState<LevelUpEvent | null>(null);
 
   useEffect(() => {
-    // Initial session check
-    supabase.auth.getSession().then(({ data }) => {
-      const session = data?.session;
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      } else {
-        const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
-        if (isGuest) {
-            guestLogin();
-        } else {
-            setLoading(false);
-        }
-      }
-    });
+    let mounted = true;
 
+    // We only need the listener, as it provides the initial session on subscribe
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       if (session?.user) {
-        await loadUserProfile(session.user.id);
+        // Only trigger loading if we don't have the user profile yet
+        // or if it's a new sign in
+        if (!user || user.id !== session.user.id) {
+          setLoading(true);
+          await loadUserProfile(session.user.id);
+        }
       } else {
-        if (localStorage.getItem('typearena_is_guest') !== 'true') {
-            setUser(null);
+        // If no session, check for guest mode, otherwise stop loading
+        const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
+        if (isGuest && !user) {
+          guestLogin();
+        } else if (!isGuest) {
+          setUser(null);
+          setLoading(false);
         }
       }
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [user?.id]);
 
-  async function loadUserProfile(userId: string) {
+  async function loadUserProfile(userId: string, retries = 3) {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -68,62 +70,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error || !data) {
-          console.warn("Profile not found for authenticated user:", userId, error);
-          return;
+        if (retries > 0) {
+          console.log(`Profile not found for ${userId}, retrying... (${retries} left)`);
+          await new Promise(res => setTimeout(res, 1500));
+          return loadUserProfile(userId, retries - 1);
+        }
+        console.warn("Profile not found after retries:", userId, error);
+        setUser(null);
+        setLoading(false);
+        return;
       }
 
       const matches = await getMatchHistory(userId);
       const dbUser = data as DbUser;
       
-      const safeUsername = typeof dbUser.username === 'string' ? dbUser.username : "Player";
-      const safeRank = typeof dbUser.rank === 'string' ? dbUser.rank as Rank : Rank.BRONZE_I;
-
       setUser({
         id: dbUser.id,
-        username: safeUsername,
+        username: dbUser.username || "Player",
         isGuest: false,
         xp: Number(dbUser.xp) || 0,
-        rank: safeRank,
+        rank: (dbUser.rank as Rank) || Rank.BRONZE_I,
         bestWpm: Number(dbUser.best_wpm) || 0,
         avgWpm: Number(dbUser.average_wpm) || 0,
         winStreak: Number(dbUser.win_streak) || 0,
         matches: matches
       });
+      setLoading(false);
     } catch (err) {
       console.error('Failed to load profile:', err);
-    } finally {
+      setUser(null);
       setLoading(false);
     }
   }
 
   const login = async (email: string, pass: string) => {
+    // We don't set global loading true here, we use local state in Login.tsx
+    // The listener will pick up the session change and trigger the global loader
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
   };
 
   const signup = async (email: string, pass: string, username: string) => {
-    // 1. Create the Auth User with metadata.
-    // The DB trigger uses raw_user_meta_data->>'username' to populate public.users.
     const { data, error } = await supabase.auth.signUp({ 
       email, 
       password: pass,
-      options: {
-        data: {
-          username: username
-        }
-      }
+      options: { data: { username } }
     });
 
-    if (error) throw error;
-    if (!data.user) throw new Error("Registration failed: No user returned.");
-
-    // 2. Loading Grace Period
-    // Give the database trigger time to create the public.users record.
-    await new Promise(res => setTimeout(res, 1000));
-    
-    // Refresh user state immediately if session was auto-started (standard for Supabase without email confirm)
-    if (data.session || data.user) {
-        await loadUserProfile(data.user.id);
+    if (error) {
+      throw error;
+    }
+    if (!data.user) {
+      throw new Error("Registration failed.");
     }
   };
 
@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('typearena_is_guest', 'true');
     setUser({
       id: 'guest_' + Date.now(),
-      username: 'Guest',
+      username: 'Ghost_Typist',
       isGuest: true,
       xp: 0,
       rank: Rank.BRONZE_I,
@@ -144,9 +144,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
     localStorage.removeItem('typearena_is_guest');
     setUser(null);
+    setLoading(false);
   };
 
   const addMatch = async (stats: MatchStats, baseXp: number, isMultiplayerWin?: boolean) => {
@@ -159,8 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMultiplayerWin) {
             newStreak += 1;
             if (newStreak > 1) {
-                const streakBonus = Math.min(newStreak * 10, 100);
-                finalXp += streakBonus;
+                finalXp += Math.min(newStreak * 10, 100);
             }
         } else {
             newStreak = 0;
@@ -193,26 +194,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(updatedUser);
 
     if (!user.isGuest) {
-        try {
-            await saveMatchHistory(user.id, stats);
-            // Column names updated to match public.users table (average_wpm)
-            await supabase.from('users').update({
-                xp: newXp,
-                rank: newRank,
-                best_wpm: newBest,
-                average_wpm: avg,
-                win_streak: newStreak,
-                updated_at: new Date().toISOString()
-            }).eq('id', user.id);
-        } catch (err) {
-            console.error("Supabase Sync Error:", err);
-        }
+      try {
+        await saveMatchHistory(user.id, stats);
+        await supabase.from('users').update({
+          xp: newXp,
+          rank: newRank,
+          best_wpm: newBest,
+          average_wpm: avg,
+          win_streak: newStreak,
+          updated_at: new Date().toISOString()
+        }).eq('id', user.id);
+      } catch (err) {
+        console.error("Supabase Update Error:", err);
+      }
     }
   };
 
-  const dismissLevelUp = () => {
-      setLevelUpEvent(null);
-  };
+  const dismissLevelUp = () => setLevelUpEvent(null);
 
   return (
     <AuthContext.Provider value={{ user, loading, levelUpEvent, dismissLevelUp, login, signup, guestLogin, logout, addMatch }}>
@@ -223,8 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

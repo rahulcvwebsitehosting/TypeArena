@@ -31,6 +31,23 @@
             },
             animation: {
               'pulse-fast': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'shimmer': 'shimmer 2s infinite linear',
+              'pop-in': 'popIn 0.5s cubic-bezier(0.26, 0.53, 0.74, 1.48) forwards',
+              'fade-in': 'fadeIn 0.4s ease-out forwards',
+            },
+            keyframes: {
+              shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' },
+              },
+              popIn: {
+                '0%': { opacity: '0', transform: 'scale(0.8)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              }
             }
           }
         }
@@ -57,7 +74,6 @@
           display: none;
       }
       
-      /* Simplified Panel - No heavy blur */
       .glass-panel {
         background: var(--bg-color);
         border: 1px solid #e2e8f0;
@@ -70,15 +86,6 @@
         box-shadow: none;
       }
 
-      .glass-panel-hover:hover {
-        border-color: #cbd5e1;
-      }
-      
-      .dark .glass-panel-hover:hover {
-         border-color: #555;
-      }
-      
-      /* Re-enable default cursor on touch devices */
       @media (pointer: coarse) {
           body {
               cursor: auto;
@@ -99,7 +106,7 @@
     "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1"
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm"
   }
 }
 </script>

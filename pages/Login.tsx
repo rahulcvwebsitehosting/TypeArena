@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Keyboard, Mail, Lock, User as UserIcon, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const { login, signup, guestLogin } = useAuth();
+  const { user, login, signup, guestLogin } = useAuth();
   const navigate = useNavigate();
   
   const [mode, setMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
@@ -15,11 +15,22 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // If user is already logged in, redirect to home
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
+
   const getErrorMessage = (err: any): string => {
     if (!err) return "An unexpected error occurred.";
     if (typeof err === 'string') return err;
     
-    // Try common error structures from Supabase/PostgREST
+    // Supabase error handling
+    if (err.status === 400 || err.code === 'invalid_credentials' || err.message?.includes('Invalid login credentials')) {
+      return "Incorrect email or password. Please try again.";
+    }
+
     const message = 
       err.message || 
       err.error_description || 
@@ -28,20 +39,12 @@ const Login: React.FC = () => {
       err.code;
 
     if (typeof message === 'string' && message !== "[object Object]" && message.trim() !== "") {
-      // Humanize some common codes
-      if (message === 'invalid_credentials') return "Invalid email or password.";
-      if (message === 'Email address is invalid') return "Please enter a valid email address.";
       if (message.includes('User already registered')) return "This email is already in use.";
+      if (message.includes('valid email')) return "Please enter a valid email address.";
       return message;
     }
 
-    // If it's an object we couldn't parse properly, try to see if it has a string value
-    const str = String(err);
-    if (str !== "[object Object]" && str.trim() !== "") {
-      return str;
-    }
-
-    return "Authentication failed. Please verify your connection and try again.";
+    return "Authentication failed. Please verify your credentials.";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,18 +55,17 @@ const Login: React.FC = () => {
     try {
       if (mode === 'LOGIN') {
         await login(email, password);
+        // We don't navigate manually here; the AuthContext listener will handle the redirect once profile is loaded
       } else {
         if (username.trim().length < 3) {
           throw new Error("Username must be at least 3 characters long.");
         }
         await signup(email, password, username.trim());
       }
-      navigate('/');
     } catch (err: any) {
       console.error('Auth Error Details:', err);
       const msg = getErrorMessage(err);
       setError(msg);
-    } finally {
       setIsSubmitting(false);
     }
   };

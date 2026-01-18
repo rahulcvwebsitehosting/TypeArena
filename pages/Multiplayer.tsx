@@ -4,9 +4,10 @@ import { generatePracticeText } from '../services/geminiService';
 import TypingEngine from '../components/TypingEngine';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
-import { Loader2, Zap, Check, Copy, Lock, Globe, Users, User as UserIcon, Timer } from 'lucide-react';
+import { Loader2, Zap, Check, Copy, Lock, Globe, Users, User as UserIcon, Timer, Trophy, ShieldAlert } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import Confetti from '../components/Confetti';
 
 const BOT_NAMES = ['Speedster_99', 'CodeNinja', 'TypeMaster_X', 'KeyboardWarrior', 'FingerSlippage', 'Glitch_Runner'];
 const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -37,7 +38,6 @@ const Multiplayer: React.FC = () => {
   const [playerWon, setPlayerWon] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   
-  // Added missing loadingText state
   const [loadingText, setLoadingText] = useState('Initializing Arena...');
   const [lobbyId, setLobbyId] = useState<string>('');
   const [hostName, setHostName] = useState<string>('');
@@ -59,7 +59,6 @@ const Multiplayer: React.FC = () => {
     return Difficulty.HARD;
   };
 
-  // Realtime Channel Management
   useEffect(() => {
     if (!lobbyId || !user) return;
 
@@ -158,10 +157,8 @@ const Multiplayer: React.FC = () => {
     setStatus('SEARCHING');
     setLoadingText("Generating Arena Text...");
     
-    // Request a much longer text for marathon mode
     const difficulty = getDifficultyByRank(user?.rank);
     const generatedText = await generatePracticeText(difficulty);
-    // Duplicate text to ensure it's long enough for 1 minute
     const marathonText = (generatedText + " ").repeat(5); 
     setText(marathonText);
     
@@ -260,7 +257,6 @@ const Multiplayer: React.FC = () => {
       if (currentStatsRef.current) {
           handleFinish(currentStatsRef.current);
       } else {
-          // Fallback if no stats were recorded yet
           handleFinish({ wpm: 0, accuracy: 100, errors: 0, timeTaken: 60, characterStats: {} });
       }
   };
@@ -448,17 +444,32 @@ const Multiplayer: React.FC = () => {
         />
 
         {status === 'FINISHED' && result && (
-            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-                <div className="bg-white dark:bg-abyss p-8 rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-white/10 animate-pop-in">
-                    <h2 className={`text-5xl font-black text-center mb-8 italic tracking-tighter ${playerWon ? 'text-neon-cyan' : 'text-red-500'}`}>
-                        {playerWon ? 'ARENA MASTER' : 'RANK DOWN'}
-                    </h2>
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 overflow-hidden">
+                {playerWon && <Confetti />}
+                
+                <div className="relative bg-white dark:bg-abyss p-8 rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-white/10 animate-pop-in z-10 overflow-hidden">
+                    {/* Celebration Background Glow */}
+                    {playerWon && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-neon-cyan/10 blur-[100px] pointer-events-none"></div>
+                    )}
+                    
+                    <div className="flex flex-col items-center mb-6">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 border-4 ${playerWon ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan shadow-[0_0_20px_rgba(6,182,212,0.3)]' : 'border-red-500 bg-red-500/10 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]'} transform animate-bounce`}>
+                             {playerWon ? <Trophy size={40} /> : <ShieldAlert size={40} />}
+                        </div>
+                        <h2 className={`text-5xl font-black text-center italic tracking-tighter uppercase ${playerWon ? 'text-neon-cyan drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'text-red-500'}`}>
+                            {playerWon ? 'ARENA MASTER' : 'RANK DOWN'}
+                        </h2>
+                        {playerWon && <p className="text-neon-cyan font-black text-[10px] tracking-[0.3em] mt-2 animate-pulse uppercase">Maximum Velocity Detected</p>}
+                    </div>
                     
                     <div className="space-y-3 mb-8">
                         {leaderboard.map((entry) => (
-                            <div key={entry.id} className={`flex justify-between items-center p-4 rounded-xl border-2 transition-all ${entry.isUser ? 'border-neon-cyan bg-neon-cyan/10 scale-105 shadow-lg shadow-neon-cyan/20' : 'border-transparent bg-slate-50 dark:bg-white/5'}`}>
+                            <div key={entry.id} className={`flex justify-between items-center p-4 rounded-xl border-2 transition-all ${entry.isUser ? 'border-neon-cyan bg-neon-cyan/10 scale-105 shadow-xl shadow-neon-cyan/20 ring-2 ring-neon-cyan/20' : 'border-transparent bg-slate-50 dark:bg-white/5'}`}>
                                 <div className="flex gap-4 items-center">
-                                    <span className={`text-2xl font-black italic ${entry.rank === 1 ? 'text-yellow-400' : 'text-slate-400'}`}>#{entry.rank}</span>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black italic text-lg ${entry.rank === 1 ? 'bg-yellow-400 text-black shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                                        #{entry.rank}
+                                    </div>
                                     <span className={`font-bold ${entry.isUser ? 'text-neon-cyan' : 'text-slate-800 dark:text-white'}`}>{entry.name}</span>
                                 </div>
                                 <div className="text-right">
@@ -470,8 +481,8 @@ const Multiplayer: React.FC = () => {
                     </div>
 
                     <div className="flex gap-4">
-                        <button onClick={() => window.location.reload()} className="flex-1 py-4 bg-neon-cyan text-black font-black rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-neon-cyan/20 uppercase tracking-widest">Re-Queue</button>
-                        <button onClick={() => navigate('/')} className="flex-1 py-4 bg-slate-100 dark:bg-white/10 text-slate-500 font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest">Dismiss</button>
+                        <button onClick={() => window.location.reload()} className="flex-1 py-4 bg-neon-cyan text-black font-black rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-neon-cyan/20 uppercase tracking-widest text-sm">Re-Queue</button>
+                        <button onClick={() => navigate('/')} className="flex-1 py-4 bg-slate-100 dark:bg-white/10 text-slate-500 font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest text-sm">Dismiss</button>
                     </div>
                 </div>
             </div>
