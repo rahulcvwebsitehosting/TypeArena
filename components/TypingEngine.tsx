@@ -196,6 +196,19 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const formatSeconds = (ms: number) => Math.floor(ms / 1000).toString().padStart(2, '0');
   const formatMillis = (ms: number) => Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
 
+  // Anti-cheat handlers
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+  };
+
+  const handleCopy = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto relative flex flex-col items-center">
       {/* Visual Gaming Timer HUD - Hidden in Timed Mode as parent shows it better */}
@@ -257,6 +270,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       <div 
         ref={containerRef}
         onClick={handleContainerClick}
+        onContextMenu={handleContextMenu}
         className="relative min-h-[280px] p-8 md:p-12 bg-white dark:bg-abyss rounded-3xl border border-slate-200 dark:border-white/10 cursor-text shadow-xl ring-4 ring-transparent focus-within:ring-neon-purple/10 transition-all w-full overflow-hidden"
       >
         <input 
@@ -265,10 +279,14 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
             className="absolute opacity-0 top-0 left-0 w-full h-full cursor-default"
             value={input}
             onChange={handleChange}
+            onPaste={handlePaste}
             autoComplete="off"
             disabled={!isGameActive}
         />
-        <div className="leading-relaxed select-none break-words whitespace-pre-wrap font-medium">
+        <div 
+          onCopy={handleCopy}
+          className="leading-relaxed select-none break-words whitespace-pre-wrap font-medium"
+        >
             {renderText()}
         </div>
         {!isGameActive && !startTime && text.length > 0 && (
