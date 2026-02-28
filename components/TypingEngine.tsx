@@ -45,13 +45,11 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const inputValRef = useRef(""); // Track latest input to avoid stale state
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
-  const [errors, setErrors] = useState(0);
-  const [backspaces, setBackspaces] = useState(0);
-  const [missedChars, setMissedChars] = useState<Record<string, number>>({});
-  const [confusionMap, setConfusionMap] = useState<Record<string, number>>({});
-  const [wpmHistory, setWpmHistory] = useState<{ time: number; wpm: number }[]>(
-    [],
-  );
+  
+  const backspacesRef = useRef(0);
+  const missedCharsRef = useRef<Record<string, number>>({});
+  const confusionMapRef = useRef<Record<string, number>>({});
+  const wpmHistoryRef = useRef<{ time: number; wpm: number }[]>([]);
 
   // Normalize text to handle newlines and special whitespace from Gemini
   const normalizedText = React.useMemo(() => {
@@ -69,11 +67,10 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       setStartTime(null);
       setWpm(0);
       setAccuracy(100);
-      setErrors(0);
-      setBackspaces(0);
-      setMissedChars({});
-      setConfusionMap({});
-      setWpmHistory([]);
+      backspacesRef.current = 0;
+      missedCharsRef.current = {};
+      confusionMapRef.current = {};
+      wpmHistoryRef.current = [];
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isGameActive, normalizedText]);
@@ -133,11 +130,11 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         errors: currentErrors,
         timeTaken: timeElapsedSec,
         totalChars,
-        backspaces,
+        backspaces: backspacesRef.current,
         rawWpm: Math.round(grossWpm),
-        wpmHistory,
-        confusionMap,
-        characterStats: missedChars,
+        wpmHistory: [...wpmHistoryRef.current],
+        confusionMap: { ...confusionMapRef.current },
+        characterStats: { ...missedCharsRef.current },
       };
 
       return stats;
@@ -145,10 +142,6 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     [
       startTime,
       normalizedText,
-      backspaces,
-      missedChars,
-      confusionMap,
-      wpmHistory,
     ],
   );
 
@@ -159,22 +152,27 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     const interval = setInterval(() => {
       const stats = calculateStats(inputValRef.current);
       if (stats) {
-        setWpmHistory((prev) => [
-          ...prev,
-          { time: Math.round((Date.now() - startTime) / 1000), wpm: stats.wpm },
-        ]);
+        wpmHistoryRef.current.push({
+          time: Math.round((Date.now() - startTime) / 1000),
+          wpm: stats.wpm,
+        });
         setWpm(stats.wpm);
         setAccuracy(stats.accuracy);
+        
+        // Broadcast stats periodically in multiplayer
+        if (onStatsUpdate) {
+          onStatsUpdate({ ...stats, wpmHistory: [...wpmHistoryRef.current] });
+        }
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [startTime, isGameActive, calculateStats]);
+  }, [startTime, isGameActive, calculateStats, onStatsUpdate]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Backspace") {
-        setBackspaces((prev) => prev + 1);
+        backspacesRef.current += 1;
         setLastKeyPressed("Backspace");
       } else if (e.key.length === 1 || e.key === "Enter" || e.key === " ") {
         setLastKeyPressed(e.key);
@@ -207,17 +205,13 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       setLastInputCorrect(match);
 
       if (!match) {
-        setErrors((prev) => prev + 1);
-        setMissedChars((prev) => ({
-          ...prev,
-          [expectedChar]: (prev[expectedChar] || 0) + 1,
-        }));
+        missedCharsRef.current[expectedChar] = (missedCharsRef.current[expectedChar] || 0) + 1;
 
-        const confusionKey = `${expectedChar.toLowerCase()}→${typedChar.toLowerCase()}`;
-        setConfusionMap((prev) => ({
-          ...prev,
-          [confusionKey]: (prev[confusionKey] || 0) + 1,
-        }));
+        const expectedDisplay = expectedChar === " " ? "SPACE" : expectedChar.toLowerCase();
+        const typedDisplay = typedChar === " " ? "SPACE" : typedChar.toLowerCase();
+        const confusionKey = `${expectedDisplay}→${typedDisplay}`;
+        
+        confusionMapRef.current[confusionKey] = (confusionMapRef.current[confusionKey] || 0) + 1;
       }
     }
 
@@ -226,10 +220,11 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     if (latestStats) {
       setWpm(latestStats.wpm);
       setAccuracy(latestStats.accuracy);
-      setErrors(latestStats.errors); // Sync errors state
-      if (onStatsUpdate) onStatsUpdate(latestStats);
+      // We don't call onStatsUpdate here to avoid spamming the network in multiplayer
+      // It is handled by the 1-second interval instead
 
       if (newVal.length === normalizedText.length) {
+        if (onStatsUpdate) onStatsUpdate(latestStats);
         onGameFinish(latestStats);
       }
     }
@@ -265,6 +260,15 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     setLastKeyPressed(key);
     setTimeout(() => setLastKeyPressed(""), 150);
   };
+
+  const handleVirtualKeyPressRef = useRef(handleVirtualKeyPress);
+  useEffect(() => {
+    handleVirtualKeyPressRef.current = handleVirtualKeyPress;
+  });
+
+  const stableHandleVirtualKeyPress = useCallback((key: string) => {
+    handleVirtualKeyPressRef.current(key);
+  }, []);
 
   const renderText = () => {
     return normalizedText.split("").map((char, index) => {
@@ -363,7 +367,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       {showKeyboard && (
         <div className="hidden md:block w-full">
           <VirtualKeyboard
-            onKeyPress={handleVirtualKeyPress}
+            onKeyPress={stableHandleVirtualKeyPress}
             targetKey={normalizedText[input.length]}
             lastPressedKey={lastKeyPressed}
             isCorrect={lastInputCorrect}

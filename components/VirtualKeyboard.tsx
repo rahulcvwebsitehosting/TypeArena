@@ -129,4 +129,4 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
   );
 };
 
-export default VirtualKeyboard;
+export default React.memo(VirtualKeyboard);
