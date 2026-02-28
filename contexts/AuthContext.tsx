@@ -28,51 +28,134 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [levelUpEvent, setLevelUpEvent] = useState<LevelUpEvent | null>(null);
-  const initialized = useRef(false);
+  const lastSyncId = useRef<string | null>(null);
 
-  // Profile loader with retry logic for database trigger consistency
-  const loadUserProfile = async (userId: string, retries = 2) => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+  // Helper to extract the best possible username from session metadata
+  const getBestUsername = (session: any) => {
+    const meta = session?.user?.user_metadata;
+    const email = session?.user?.email;
+    
+    return meta?.username || 
+           meta?.display_name || 
+           meta?.full_name || 
+           email?.split('@')[0] || 
+           "Player";
+  };
 
-      if (error) throw error;
-
-      if (!data) {
-        if (retries > 0) {
-          console.warn(`Profile for ${userId} not found yet. Retrying... (${retries} left)`);
-          await new Promise(res => setTimeout(res, 800)); // Faster retries
-          return loadUserProfile(userId, retries - 1);
+  // Unified user synchronization logic
+  const syncUser = async (session: any) => {
+    if (!session?.user) {
+      const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
+      if (isGuest) {
+        // Only set guest if not already set or if id changed
+        if (!user || !user.isGuest) {
+          guestLogin();
         }
-        // If profile is genuinely missing after retries, don't hang.
-        // This can happen if triggers fail or project is in a weird state.
-        console.error("Profile not found in database. Please contact support or try re-registering.");
+      } else {
         setUser(null);
         setLoading(false);
-        return;
+      }
+      return;
+    }
+
+    const userId = session.user.id;
+    
+    // Prevent redundant syncs for the same user session
+    if (lastSyncId.current === userId && user && !user.isGuest) {
+      setLoading(false);
+      return;
+    }
+    
+    lastSyncId.current = userId;
+    if (!user) setLoading(true);
+
+    try {
+      const metadataUsername = getBestUsername(session);
+      console.log(`[Auth] Syncing user: ${userId}, Metadata Name: ${metadataUsername}`);
+      
+      // 1. Immediate Fallback: Set basic user info from Auth metadata first
+      const initialUser: User = {
+        id: userId,
+        username: metadataUsername,
+        isGuest: false,
+        xp: 0,
+        rank: Rank.BRONZE_I,
+        bestWpm: 0,
+        avgWpm: 0,
+        winStreak: 0,
+        matches: []
+      };
+
+      // 2. Fetch DB Profile & Matches
+      const [profileRes, matches] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        getMatchHistory(userId).catch(() => [])
+      ]);
+
+      let profileData = profileRes.data;
+
+      // 3. Legacy Fallback
+      if (!profileData) {
+        const legacyRes = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (legacyRes.data) profileData = legacyRes.data;
       }
 
-      const matches = await getMatchHistory(userId);
-      const dbUser = data as DbUser;
-      
-      setUser({
-        id: dbUser.id,
-        username: dbUser.username || "Player",
-        isGuest: false,
-        xp: Number(dbUser.xp) || 0,
-        rank: (dbUser.rank as Rank) || Rank.BRONZE_I,
-        bestWpm: Number(dbUser.best_wpm) || 0,
-        avgWpm: Number(dbUser.average_wpm) || 0,
-        winStreak: Number(dbUser.win_streak) || 0,
-        matches: matches
-      });
-      setLoading(false);
+      // 4. Final State Update
+      if (profileData) {
+        // Use DB name if it's not 'Player', otherwise use metadata
+        const dbUsername = (profileData.username && profileData.username !== 'Player') 
+          ? profileData.username 
+          : metadataUsername;
+
+        console.log(`[Auth] DB Profile found. Name: ${profileData.username}, Using: ${dbUsername}`);
+
+        setUser({
+          id: profileData.id,
+          username: dbUsername,
+          isGuest: false,
+          xp: Number(profileData.xp) || 0,
+          rank: (profileData.rank as Rank) || Rank.BRONZE_I,
+          bestWpm: Number(profileData.best_wpm) || 0,
+          avgWpm: Number(profileData.average_wpm) || 0,
+          winStreak: Number(profileData.win_streak) || 0,
+          matches: matches || []
+        });
+
+        // If DB has 'Player' but metadata has a real name, update DB in background
+        if ((!profileData.username || profileData.username === 'Player') && metadataUsername !== 'Player') {
+          console.log(`[Auth] Updating DB username to: ${metadataUsername}`);
+          supabase.from('profiles').update({ username: metadataUsername }).eq('id', userId).then();
+        }
+      } else {
+        console.log(`[Auth] No DB profile found. Using metadata name: ${metadataUsername}`);
+        setUser(initialUser);
+        
+        // Create the profile record in background
+        supabase.from('profiles').upsert({
+          id: userId,
+          username: metadataUsername,
+          xp: 0,
+          rank: Rank.BRONZE_I,
+          updated_at: new Date().toISOString()
+        }).then(({ error }) => {
+          if (error) console.error("[Auth] Background profile creation failed:", error);
+        });
+      }
     } catch (err) {
-      console.error('Failed to load profile:', err);
-      setUser(null);
+      console.error('[Auth] Sync error:', err);
+      const fallbackName = getBestUsername(session);
+      setUser({
+        id: userId,
+        username: fallbackName,
+        isGuest: false,
+        xp: 0,
+        rank: Rank.BRONZE_I,
+        bestWpm: 0,
+        avgWpm: 0,
+        winStreak: 0,
+        matches: []
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -80,39 +163,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Listen for auth changes (Login, Logout, Initial Session, Token Refresh)
-    // Supabase fires this immediately with the current state on subscription.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
+    // 1. Initial Session Check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) syncUser(session);
+    });
 
-      if (session?.user) {
-        // If we have a user, fetch their database profile
-        await loadUserProfile(session.user.id);
-      } else {
-        // No session found, check for Guest Mode or just stop loading
-        const isGuest = localStorage.getItem('typearena_is_guest') === 'true';
-        if (isGuest) {
-          guestLogin();
-        } else {
-          setUser(null);
-          setLoading(false);
-        }
+    // 2. Auth State Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      console.log(`[Auth] Event: ${event}`);
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        syncUser(session);
+      } else if (event === 'SIGNED_OUT') {
+        lastSyncId.current = null;
+        setUser(null);
+        setLoading(false);
+        localStorage.removeItem('typearena_is_guest');
       }
     });
 
-    // High-priority safety timeout: If app is stuck loading for more than 6 seconds, force show UI
-    // Reduced from 10s to 6s for better UX on slow connections.
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("Auth took too long. Forcing load completion.");
-        setLoading(false);
-      }
-    }, 6000);
+    // 3. Safety Timeout
+    const timer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 10000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      clearTimeout(safetyTimer);
+      clearTimeout(timer);
     };
   }, []);
 
@@ -130,6 +209,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) throw error;
     if (!data.user) throw new Error("Registration failed.");
+
+    // Create the user record in the 'profiles' table immediately to avoid retries in loadUserProfile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: data.user.id,
+        username: username,
+        xp: 0,
+        rank: Rank.BRONZE_I,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (profileError) {
+      console.error("Error creating profile record:", profileError);
+      // We don't throw here because the auth account was created successfully.
+      // loadUserProfile will retry and eventually find it if a trigger exists, 
+      // or the fallback creation will handle it.
+    }
   };
 
   const guestLogin = () => {
@@ -201,7 +299,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user.isGuest) {
       try {
         await saveMatchHistory(user.id, stats);
-        await supabase.from('users').update({
+        await supabase.from('profiles').update({
           xp: newXp,
           rank: newRank,
           best_wpm: newBest,

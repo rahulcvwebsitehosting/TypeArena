@@ -206,7 +206,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     setInput(newVal);
 
     // Immediate state synchronization
-    const latestStats = calculateStats(newVal, currentStartTime);
+    const latestStats = calculateStats(newVal, currentStartTime || undefined);
     if (latestStats) {
       setWpm(latestStats.wpm);
       setAccuracy(latestStats.accuracy);

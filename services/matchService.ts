@@ -5,7 +5,7 @@ import { MatchStats } from '../types';
 export async function saveMatchHistory(userId: string, stats: MatchStats) {
   try {
     const { data, error } = await supabase
-      .from('match_history')
+      .from('matches')
       .insert({
         user_id: userId,
         mode: stats.mode,
@@ -29,7 +29,7 @@ export async function saveMatchHistory(userId: string, stats: MatchStats) {
 export async function getMatchHistory(userId: string, limit = 50): Promise<MatchStats[]> {
   try {
     const { data, error } = await supabase
-      .from('match_history')
+      .from('matches')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })

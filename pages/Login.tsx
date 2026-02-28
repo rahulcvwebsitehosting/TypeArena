@@ -80,11 +80,14 @@ const Login: React.FC = () => {
       if (mode === "LOGIN") {
         await login(email, password);
         // We don't navigate manually here; the AuthContext listener will handle the redirect once profile is loaded
+        // But we should reset submitting state in case the redirect takes a moment
+        setIsSubmitting(false);
       } else {
         if (username.trim().length < 3) {
           throw new Error("Username must be at least 3 characters long.");
         }
         await signup(email, password, username.trim());
+        setIsSubmitting(false);
       }
     } catch (err: any) {
       console.error("Auth Error Details:", err);

@@ -64,9 +64,6 @@ const Multiplayer: React.FC = () => {
   const channelRef = useRef<any>(null);
   const currentStatsRef = useRef<GameResult | null>(null);
 
-  const calculateAdjustedWpm = (wpm: number, accuracy: number) =>
-    wpm * (accuracy / 100);
-
   const getDifficultyByRank = (rank: Rank | undefined): Difficulty => {
     if (!rank) return Difficulty.EASY;
     const r = rank.toString();
@@ -165,7 +162,6 @@ const Multiplayer: React.FC = () => {
     setStatus("SEARCHING");
     setLoadingText("Synthesizing Bulk Marathon Terrain...");
 
-    // OPTIMIZED: One call instead of five
     const difficulty = getDifficultyByRank(user?.rank);
     const marathonText = await generateMarathonText(difficulty);
     setText(marathonText);
@@ -251,9 +247,8 @@ const Multiplayer: React.FC = () => {
       setOpponents((prev) =>
         prev.map((opp) => {
           if (!opp.id.startsWith("bot")) return opp;
-          // Realistic Bot Velocity with Jitter
           const elapsedMin = (Date.now() - start) / 60000;
-          const jitter = 0.9 + Math.random() * 0.2; // 90% to 110% speed variance
+          const jitter = 0.9 + Math.random() * 0.2;
           const currentProgress = Math.min(
             100,
             ((opp.wpm * jitter * 5 * elapsedMin) / text.length) * 100,
@@ -268,39 +263,60 @@ const Multiplayer: React.FC = () => {
     }, 200);
   };
 
+  // DYNAMIC LEADERBOARD CALCULATION
+  useEffect(() => {
+    if (status !== "FINISHED" && status !== "RACING") return;
+
+    const results = [
+      {
+        id: "user",
+        name: user?.username || "You",
+        wpm: currentStatsRef.current?.wpm || 0,
+        accuracy: currentStatsRef.current?.accuracy || 100,
+        score: currentStatsRef.current?.wpm || 0,
+        isUser: true,
+        isFinished: status === "FINISHED",
+      },
+      ...opponents.map((opp) => ({
+        id: opp.id,
+        name: opp.name,
+        wpm: opp.wpm,
+        accuracy: opp.accuracy,
+        score: opp.wpm,
+        isUser: false,
+        isFinished: opp.isFinished,
+      })),
+    ]
+      .sort((a, b) => {
+        if (a.isFinished && !b.isFinished) return -1;
+        if (!a.isFinished && b.isFinished) return 1;
+        return b.score - a.score;
+      })
+      .map((p, i) => ({ ...p, rank: i + 1 }));
+
+    setLeaderboard(results);
+    const userRank = results.find((p) => p.isUser)?.rank || results.length;
+    setUserRankPos(userRank);
+  }, [opponents, status, user?.username]);
+
   const handleFinish = (res: GameResult) => {
     if (status === "FINISHED") return;
 
     if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
     if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
 
-    const userScore = calculateAdjustedWpm(res.wpm, res.accuracy);
-    const results = [
-      {
-        id: "user",
-        name: user?.username || "You",
-        wpm: res.wpm,
-        accuracy: res.accuracy,
-        score: userScore,
-        isUser: true,
-      },
-      ...opponents.map((b) => ({
-        id: b.id,
-        name: b.name,
-        wpm: b.wpm,
-        accuracy: b.accuracy,
-        score: calculateAdjustedWpm(b.wpm, b.accuracy),
-        isUser: false,
-      })),
-    ]
-      .sort((a, b) => b.score - a.score)
-      .map((p, i) => ({ ...p, rank: i + 1 }));
-
-    setLeaderboard(results);
-    const rank = results.find((p) => p.isUser)?.rank || results.length;
-    setUserRankPos(rank);
+    currentStatsRef.current = res;
     setResult(res);
     setStatus("FINISHED");
+
+    broadcastStats(res);
+
+    const finalResults = [
+      { id: "user", score: res.wpm },
+      ...opponents.map((o) => ({ id: o.id, score: o.wpm })),
+    ].sort((a, b) => b.score - a.score);
+
+    const rank = finalResults.findIndex((p) => p.id === "user") + 1;
 
     addMatch(
       {
