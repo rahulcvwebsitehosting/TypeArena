@@ -1,3 +1,4 @@
+
 export enum Difficulty {
   EASY = 'Easy',
   MEDIUM = 'Medium',
@@ -49,6 +50,11 @@ export interface GameResult {
   accuracy: number;
   errors: number;
   timeTaken: number;
+  totalChars: number;
+  backspaces: number;
+  rawWpm: number;
+  wpmHistory: { time: number; wpm: number }[];
+  confusionMap: Record<string, number>; // "e->r": 5
   characterStats: Record<string, number>; // Missed count per char
 }
 

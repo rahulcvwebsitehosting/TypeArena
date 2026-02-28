@@ -95,9 +95,29 @@ export const getLevelProgress = (xp: number): LevelProgress => {
 };
 
 // Fallback texts
-export const FALLBACK_TEXTS = {
-  Easy: "The sun is shining bright today. Birds are singing in the trees. It is a good day to go for a walk in the park.",
-  Medium: "However, the weather can change quickly; clouds might gather, and rain could fall, creating a cozy atmosphere indoors.",
-  Hard: "Philosophy is the study of general and fundamental questions; it involves critical discussion, rational argument, and systematic presentation.",
-  Coding: "const calculateSum = (a, b) => { return a + b; }; console.log(calculateSum(5, 10));"
+export const FALLBACK_TEXTS: Record<string, string[]> = {
+  Easy: [
+    "The sun is shining bright today. Birds are singing in the trees. It is a good day to go for a walk in the park.",
+    "A cat sleeps on the warm windowsill. Outside, children play in the yard. The sky is clear and blue.",
+    "I like to read books on the weekend. Sometimes I drink tea while reading. It makes me feel very relaxed.",
+    "We went to the store to buy some fresh fruit. Apples and bananas are my favorite. They are sweet and healthy."
+  ],
+  Medium: [
+    "However, the weather can change quickly; clouds might gather, and rain could fall, creating a cozy atmosphere indoors.",
+    "Learning a new language takes time and patience. You must practice speaking, listening, and writing every single day to improve.",
+    "The city streets were bustling with activity as people hurried to their destinations, carrying umbrellas to shield against the sudden downpour.",
+    "Technology has advanced rapidly over the last decade, transforming how we communicate, work, and entertain ourselves on a daily basis."
+  ],
+  Hard: [
+    "Philosophy is the study of general and fundamental questions; it involves critical discussion, rational argument, and systematic presentation.",
+    "The intricate mechanisms of cellular biology reveal a staggering complexity, where proteins fold into precise three-dimensional structures to perform specific catalytic functions.",
+    "Macroeconomic indicators suggested a looming recession, prompting the central bank to aggressively lower interest rates in an attempt to stimulate borrowing and investment.",
+    "Quantum entanglement, a phenomenon where particles remain interconnected regardless of distance, continues to confound physicists and challenge our classical understanding of reality."
+  ],
+  Coding: [
+    "const calculateSum = (a, b) => { return a + b; }; console.log(calculateSum(5, 10));",
+    "function fetchData(url) { return fetch(url).then(res => res.json()).catch(err => console.error(err)); }",
+    "const uniqueArray = [...new Set([1, 2, 2, 3, 4, 4, 5])]; console.log(uniqueArray.length);",
+    "class Animal { constructor(name) { this.name = name; } speak() { console.log(`${this.name} makes a noise.`); } }"
+  ]
 };
