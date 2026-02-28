@@ -22,7 +22,7 @@ const SinglePlayer: React.FC = () => {
     setGameState('IDLE');
     setResult(null);
     const newText = await generatePracticeText(difficulty);
-    setText(newText);
+    setText(newText.replace(/\s+/g, ' ').trim());
     setLoading(false);
     setGameState('PLAYING');
   };

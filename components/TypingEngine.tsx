@@ -41,7 +41,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const [lastKeyPressed, setLastKeyPressed] = useState<string>("");
   const [lastInputCorrect, setLastInputCorrect] = useState<boolean>(true);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
   const [errors, setErrors] = useState(0);
@@ -51,6 +51,11 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const [wpmHistory, setWpmHistory] = useState<{ time: number; wpm: number }[]>(
     [],
   );
+
+  // Normalize text to handle newlines and special whitespace from Gemini
+  const normalizedText = React.useMemo(() => {
+    return text.replace(/\s+/g, " ").trim();
+  }, [text]);
 
   useEffect(() => {
     localStorage.setItem("typearena_show_kb", String(showKeyboard));
@@ -69,7 +74,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       setWpmHistory([]);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isGameActive, text]);
+  }, [isGameActive, normalizedText]);
 
   useEffect(() => {
     if (activeCharRef.current && containerRef.current) {
@@ -85,18 +90,26 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   };
 
   const calculateStats = useCallback(
-    (finalInput?: string, overrideStartTime?: number) => {
+    (currentInput: string, overrideStartTime?: number) => {
       const effectiveStartTime = overrideStartTime || startTime;
       if (!effectiveStartTime) return null;
 
-      const currentInput = finalInput !== undefined ? finalInput : input;
       const now = Date.now();
       const timeElapsedSec = (now - effectiveStartTime) / 1000;
       const timeElapsedMin = timeElapsedSec / 60;
 
-      if (timeElapsedSec < 0.2) return null; // Avoid division by zero or jitter at start
+      if (timeElapsedSec < 0.2) return null;
 
       const totalChars = currentInput.length;
+      if (totalChars === 0) return null;
+
+      // Calculate errors by comparing full input to normalized text
+      let currentErrors = 0;
+      for (let i = 0; i < totalChars; i++) {
+        if (currentInput[i] !== normalizedText[i]) {
+          currentErrors++;
+        }
+      }
 
       /**
        * STANDARD WPM FORMULA:
@@ -104,18 +117,18 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
        * Net WPM = Gross WPM - (Errors / time (min))
        */
       const grossWpm = totalChars / 5 / timeElapsedMin;
-      const errorRate = errors / timeElapsedMin;
+      const errorRate = currentErrors / timeElapsedMin;
       const netWpm = Math.max(0, Math.round(grossWpm - errorRate));
 
-      const netAccuracy =
-        totalChars > 0
-          ? Math.max(0, Math.round(((totalChars - errors) / totalChars) * 100))
-          : 100;
+      const netAccuracy = Math.max(
+        0,
+        Math.round(((totalChars - currentErrors) / totalChars) * 100),
+      );
 
       const stats: GameResult = {
         wpm: netWpm,
         accuracy: netAccuracy,
-        errors,
+        errors: currentErrors,
         timeTaken: timeElapsedSec,
         totalChars,
         backspaces,
@@ -128,9 +141,8 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       return stats;
     },
     [
-      input,
       startTime,
-      errors,
+      normalizedText,
       backspaces,
       missedChars,
       confusionMap,
@@ -143,7 +155,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     if (!startTime || !isGameActive) return;
 
     const interval = setInterval(() => {
-      const stats = calculateStats();
+      const stats = calculateStats(input);
       if (stats) {
         setWpmHistory((prev) => [
           ...prev,
@@ -152,10 +164,10 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         setWpm(stats.wpm);
         setAccuracy(stats.accuracy);
       }
-    }, 2000);
+    }, 1000); // Sample more frequently for smoother graph
 
     return () => clearInterval(interval);
-  }, [startTime, isGameActive, calculateStats]);
+  }, [startTime, isGameActive, calculateStats, input]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -172,7 +184,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
 
   const processInput = (newVal: string) => {
     if (!isGameActive) return;
-    if (newVal.length > text.length) return;
+    if (newVal.length > normalizedText.length) return;
 
     let currentStartTime = startTime;
     if (!startTime && newVal.length === 1) {
@@ -183,7 +195,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     if (newVal.length > input.length) {
       const charIndex = newVal.length - 1;
       const typedChar = newVal[charIndex];
-      const expectedChar = text[charIndex];
+      const expectedChar = normalizedText[charIndex];
 
       const match = typedChar === expectedChar;
       setLastInputCorrect(match);
@@ -210,15 +222,16 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     if (latestStats) {
       setWpm(latestStats.wpm);
       setAccuracy(latestStats.accuracy);
+      setErrors(latestStats.errors); // Sync errors state
       if (onStatsUpdate) onStatsUpdate(latestStats);
 
-      if (newVal.length === text.length) {
+      if (newVal.length === normalizedText.length) {
         onGameFinish(latestStats);
       }
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     processInput(e.target.value);
   };
 
@@ -234,7 +247,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   };
 
   const renderText = () => {
-    return text.split("").map((char, index) => {
+    return normalizedText.split("").map((char, index) => {
       let className =
         "font-mono text-xl md:text-2xl lg:text-3xl transition-colors duration-75 relative ";
       const typedChar = input[index];
@@ -300,10 +313,9 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         onClick={handleContainerClick}
         className="relative min-h-[200px] max-h-[50vh] p-6 md:p-8 lg:p-12 bg-white/5 backdrop-blur-md rounded-[2.5rem] border-2 border-white/10 cursor-text shadow-2xl w-full overflow-y-auto scrollbar-hide transition-all focus-within:border-neon-cyan/50"
       >
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
-          className="absolute opacity-0 top-0 left-0 w-full h-full cursor-default z-10"
+          className="absolute opacity-0 top-0 left-0 w-full h-full cursor-default z-10 resize-none"
           value={input}
           onChange={handleChange}
           onPaste={(e) => e.preventDefault()}
@@ -316,7 +328,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         <div className="leading-relaxed select-none break-words whitespace-pre-wrap font-medium pb-8">
           {renderText()}
         </div>
-        {!isGameActive && !startTime && text.length > 0 && (
+        {!isGameActive && !startTime && normalizedText.length > 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-[2.5rem] z-10 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
               <Zap className="text-neon-cyan animate-bounce" size={48} />
@@ -332,7 +344,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         <div className="hidden md:block w-full">
           <VirtualKeyboard
             onKeyPress={handleVirtualKeyPress}
-            targetKey={text[input.length]}
+            targetKey={normalizedText[input.length]}
             lastPressedKey={lastKeyPressed}
             isCorrect={lastInputCorrect}
           />

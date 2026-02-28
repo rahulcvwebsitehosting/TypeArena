@@ -164,7 +164,8 @@ const Multiplayer: React.FC = () => {
 
     const difficulty = getDifficultyByRank(user?.rank);
     const marathonText = await generateMarathonText(difficulty);
-    setText(marathonText);
+    const normalized = marathonText.replace(/\s+/g, ' ').trim();
+    setText(normalized);
 
     // Simulate initial bots for ranked solo matchmaking
     const bots: Opponent[] = [];
@@ -190,13 +191,14 @@ const Multiplayer: React.FC = () => {
     setLoadingText("Finalizing Arena...");
     const difficulty = getDifficultyByRank(user?.rank);
     const marathonText = await generateMarathonText(difficulty);
-    setText(marathonText);
+    const normalized = marathonText.replace(/\s+/g, ' ').trim();
+    setText(normalized);
 
     if (channelRef.current) {
       channelRef.current.send({
         type: "broadcast",
         event: "START_RACE",
-        payload: { text: marathonText },
+        payload: { text: normalized },
       });
     }
     setStatus("COUNTDOWN");
