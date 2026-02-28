@@ -1,9 +1,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Using provided credentials
-const supabaseUrl = 'https://xpiwanmfbtqtqjugswuq.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaXdhbm1mYnRxdHFqdWdzd3VxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NDI1NjMsImV4cCI6MjA4NDIxODU2M30.eCGBlAyXdffW0KzkKF1LAidhokGshxvg-JWVuyUIkAM';
+// Using environment variables for better security and flexibility
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xpiwanmfbtqtqjugswuq.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaXdhbm1mYnRxdHFqdWdzd3VxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NDI1NjMsImV4cCI6MjA4NDIxODU2M30.eCGBlAyXdffW0KzkKF1LAidhokGshxvg-JWVuyUIkAM';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
