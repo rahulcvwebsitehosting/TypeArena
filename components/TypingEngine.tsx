@@ -42,6 +42,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   const [lastInputCorrect, setLastInputCorrect] = useState<boolean>(true);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputValRef = useRef(""); // Track latest input to avoid stale state
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
   const [errors, setErrors] = useState(0);
@@ -64,6 +65,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   useEffect(() => {
     if (isGameActive) {
       setInput("");
+      inputValRef.current = "";
       setStartTime(null);
       setWpm(0);
       setAccuracy(100);
@@ -155,7 +157,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     if (!startTime || !isGameActive) return;
 
     const interval = setInterval(() => {
-      const stats = calculateStats(input);
+      const stats = calculateStats(inputValRef.current);
       if (stats) {
         setWpmHistory((prev) => [
           ...prev,
@@ -164,10 +166,10 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         setWpm(stats.wpm);
         setAccuracy(stats.accuracy);
       }
-    }, 1000); // Sample more frequently for smoother graph
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [startTime, isGameActive, calculateStats, input]);
+  }, [startTime, isGameActive, calculateStats]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -186,13 +188,17 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     if (!isGameActive) return;
     if (newVal.length > normalizedText.length) return;
 
+    const oldVal = inputValRef.current;
+    inputValRef.current = newVal;
+    setInput(newVal);
+
     let currentStartTime = startTime;
     if (!startTime && newVal.length === 1) {
       currentStartTime = Date.now();
       setStartTime(currentStartTime);
     }
 
-    if (newVal.length > input.length) {
+    if (newVal.length > oldVal.length) {
       const charIndex = newVal.length - 1;
       const typedChar = newVal[charIndex];
       const expectedChar = normalizedText[charIndex];
@@ -215,8 +221,6 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
       }
     }
 
-    setInput(newVal);
-
     // Immediate state synchronization
     const latestStats = calculateStats(newVal, currentStartTime || undefined);
     if (latestStats) {
@@ -237,11 +241,27 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
 
   const handleVirtualKeyPress = (key: string) => {
     if (!isGameActive) return;
+    
+    const currentInput = inputValRef.current;
+    let nextInput = currentInput;
+
     if (key === "Backspace") {
-      processInput(input.slice(0, -1));
+      nextInput = currentInput.slice(0, -1);
     } else if (key.length === 1 || key === " ") {
-      processInput(input + key);
+      let charToType = key;
+      const expectedChar = normalizedText[currentInput.length];
+      
+      // Smart case-matching for virtual keyboard
+      if (expectedChar && key.length === 1 && key !== " ") {
+        if (expectedChar.toLowerCase() === key.toLowerCase()) {
+          charToType = expectedChar;
+        }
+      }
+      
+      nextInput = currentInput + charToType;
     }
+
+    processInput(nextInput);
     setLastKeyPressed(key);
     setTimeout(() => setLastKeyPressed(""), 150);
   };
