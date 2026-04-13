@@ -59,10 +59,15 @@ const Multiplayer: React.FC = () => {
   const [lobbyId, setLobbyId] = useState<string>("");
   const [peerCount, setPeerCount] = useState(0);
 
+  const [userWpm, setUserWpm] = useState(0);
+  const [userAccuracy, setUserAccuracy] = useState(100);
+  const [userProgress, setUserProgress] = useState(0);
+
   const raceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<any>(null);
   const currentStatsRef = useRef<GameResult | null>(null);
+  const lastBroadcastRef = useRef(0);
 
   const getDifficultyByRank = (rank: Rank | undefined): Difficulty => {
     if (!rank) return Difficulty.EASY;
@@ -75,6 +80,12 @@ const Multiplayer: React.FC = () => {
   // BROADCAST LOCAL STATS
   const broadcastStats = (stats: GameResult) => {
     if (!channelRef.current || !user) return;
+    
+    const now = Date.now();
+    // Throttle broadcasts to every 500ms to prevent network congestion and re-render loops
+    if (now - lastBroadcastRef.current < 500 && stats.totalChars < text.length) return;
+    lastBroadcastRef.current = now;
+
     const progress = Math.min(100, (stats.totalChars / text.length) * 100);
     channelRef.current.track({
       id: user.id,
@@ -272,10 +283,10 @@ const Multiplayer: React.FC = () => {
     const results = [
       {
         id: "user",
-        name: user?.username || "You",
-        wpm: currentStatsRef.current?.wpm || 0,
-        accuracy: currentStatsRef.current?.accuracy || 100,
-        score: currentStatsRef.current?.wpm || 0,
+        name: (user?.username && user.username !== 'Player') ? user.username : (user?.isGuest ? 'Ghost_Typist' : 'You'),
+        wpm: userWpm,
+        accuracy: userAccuracy,
+        score: userWpm,
         isUser: true,
         isFinished: status === "FINISHED",
       },
@@ -314,7 +325,7 @@ const Multiplayer: React.FC = () => {
     broadcastStats(res);
 
     const finalResults = [
-      { id: "user", score: res.wpm },
+      { id: "user", score: res.totalChars > 0 ? res.wpm : -1 }, // Penalize 0 chars
       ...opponents.map((o) => ({ id: o.id, score: o.wpm })),
     ].sort((a, b) => b.score - a.score);
 
@@ -330,8 +341,8 @@ const Multiplayer: React.FC = () => {
         difficulty: getDifficultyByRank(user?.rank),
         errors: res.errors,
       },
-      rank === 1 ? 300 : rank === 2 ? 150 : 75,
-      rank === 1,
+      res.totalChars > 0 ? (rank === 1 ? 300 : rank === 2 ? 150 : 75) : 0, // No XP for 0 chars
+      rank === 1 && res.totalChars > 0, // Must have typed something to win
     );
   };
 
@@ -444,7 +455,7 @@ const Multiplayer: React.FC = () => {
           result={result}
           userRankPos={userRankPos}
           leaderboard={leaderboard}
-          playerName={user?.username || "Player"}
+          playerName={(user?.username && user.username !== 'Player') ? user.username : (user?.isGuest ? 'Ghost_Typist' : 'You')}
           onAction={(a) => {
             if (a === "REPLAY") {
               if (isHost) {
@@ -520,6 +531,9 @@ const Multiplayer: React.FC = () => {
             onGameFinish={handleFinish}
             onStatsUpdate={(s) => {
               currentStatsRef.current = s;
+              setUserWpm(s.wpm);
+              setUserAccuracy(s.accuracy);
+              setUserProgress(Math.min(100, (s.totalChars / text.length) * 100));
               broadcastStats(s);
             }}
             opponents={opponents}

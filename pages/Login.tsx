@@ -68,7 +68,17 @@ const Login: React.FC = () => {
       return message;
     }
 
-    return "Authentication failed. Please verify your credentials.";
+    // Fallback if message is still an object or empty
+    try {
+      if (typeof err === 'object') {
+        // Use JSON.stringify for unexpected error objects to ensure they're strings
+        return JSON.stringify(err);
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return String(err) || "Authentication failed. Please verify your credentials.";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

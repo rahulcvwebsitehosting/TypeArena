@@ -35,11 +35,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const meta = session?.user?.user_metadata;
     const email = session?.user?.email;
     
-    return meta?.username || 
+    const name = meta?.username || 
            meta?.display_name || 
            meta?.full_name || 
            email?.split('@')[0] || 
            "Player";
+    
+    return String(name);
   };
 
   // Unified user synchronization logic
@@ -86,10 +88,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         matches: []
       };
 
-      // 2. Fetch DB Profile & Matches
+      // 2. Fetch DB Profile & Matches with retry logic for network errors
+      const fetchWithRetry = async (fn: () => Promise<any>, retries = 2): Promise<any> => {
+        try {
+          return await fn();
+        } catch (err: any) {
+          if (retries > 0 && (err.message?.includes('Failed to fetch') || !navigator.onLine)) {
+            await new Promise(r => setTimeout(r, 1000));
+            return fetchWithRetry(fn, retries - 1);
+          }
+          throw err;
+        }
+      };
+
       const [profileRes, matches] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        getMatchHistory(userId).catch(() => [])
+        fetchWithRetry(async () => await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()),
+        fetchWithRetry(() => getMatchHistory(userId)).catch(() => [])
       ]);
 
       let profileData = profileRes.data;
@@ -103,18 +117,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 4. Final State Update
       if (profileData) {
         // Use DB name if it's not 'Player', otherwise use metadata
-        const dbUsername = (profileData.username && profileData.username !== 'Player') 
-          ? profileData.username 
+        const dbUsername = (profileData.username && String(profileData.username) !== 'Player') 
+          ? String(profileData.username) 
           : metadataUsername;
 
         console.log(`[Auth] DB Profile found. Name: ${profileData.username}, Using: ${dbUsername}`);
 
         setUser({
-          id: profileData.id,
+          id: String(profileData.id),
           username: dbUsername,
           isGuest: false,
           xp: Number(profileData.xp) || 0,
-          rank: (profileData.rank as Rank) || Rank.BRONZE_I,
+          rank: (String(profileData.rank || Rank.BRONZE_I) as Rank),
           bestWpm: Number(profileData.best_wpm) || 0,
           avgWpm: Number(profileData.average_wpm) || 0,
           winStreak: Number(profileData.win_streak) || 0,
@@ -163,17 +177,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // 1. Initial Session Check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) syncUser(session);
-    });
-
     // 2. Auth State Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
       console.log(`[Auth] Event: ${event}`);
       
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
         syncUser(session);
       } else if (event === 'SIGNED_OUT') {
         lastSyncId.current = null;

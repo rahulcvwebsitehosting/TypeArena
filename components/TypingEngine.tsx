@@ -145,7 +145,7 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
     ],
   );
 
-  // WPM Sampler for Graph
+  // WPM Sampler for Graph and Multiplayer Broadcast
   useEffect(() => {
     if (!startTime || !isGameActive) return;
 
@@ -159,12 +159,12 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         setWpm(stats.wpm);
         setAccuracy(stats.accuracy);
         
-        // Broadcast stats periodically in multiplayer
+        // Broadcast stats periodically in multiplayer (every 500ms)
         if (onStatsUpdate) {
           onStatsUpdate({ ...stats, wpmHistory: [...wpmHistoryRef.current] });
         }
       }
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [startTime, isGameActive, calculateStats, onStatsUpdate]);
@@ -213,20 +213,31 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
         
         confusionMapRef.current[confusionKey] = (confusionMapRef.current[confusionKey] || 0) + 1;
       }
+    } else {
+      // Reset correctness on backspace to avoid stuck error state on virtual keyboard
+      setLastInputCorrect(true);
     }
 
-    // Immediate state synchronization
-    const latestStats = calculateStats(newVal, currentStartTime || undefined);
-    if (latestStats) {
-      setWpm(latestStats.wpm);
-      setAccuracy(latestStats.accuracy);
-      // We don't call onStatsUpdate here to avoid spamming the network in multiplayer
-      // It is handled by the 1-second interval instead
+    // Immediate state synchronization for local UI
+    const latestStats = calculateStats(newVal, currentStartTime || undefined) || {
+      wpm: 0,
+      accuracy: 100,
+      errors: 0,
+      timeTaken: 0,
+      totalChars: newVal.length,
+      backspaces: backspacesRef.current,
+      rawWpm: 0,
+      wpmHistory: [...wpmHistoryRef.current],
+      confusionMap: { ...confusionMapRef.current },
+      characterStats: { ...missedCharsRef.current },
+    };
 
-      if (newVal.length === normalizedText.length) {
-        if (onStatsUpdate) onStatsUpdate(latestStats);
-        onGameFinish(latestStats);
-      }
+    setWpm(latestStats.wpm);
+    setAccuracy(latestStats.accuracy);
+
+    if (newVal.length === normalizedText.length) {
+      if (onStatsUpdate) onStatsUpdate(latestStats);
+      onGameFinish(latestStats);
     }
   };
 
@@ -271,7 +282,14 @@ const TypingEngine: React.FC<TypingEngineProps> = ({
   }, []);
 
   const renderText = () => {
-    return normalizedText.split("").map((char, index) => {
+    // Windowing for performance in marathon mode
+    const windowSize = 400;
+    const startIndex = Math.max(0, input.length - 100);
+    const endIndex = Math.min(normalizedText.length, startIndex + windowSize);
+    const visibleChars = normalizedText.slice(startIndex, endIndex).split("");
+
+    return visibleChars.map((char, localIndex) => {
+      const index = startIndex + localIndex;
       let className =
         "font-mono text-xl md:text-2xl lg:text-3xl transition-colors duration-75 relative ";
       const typedChar = input[index];
